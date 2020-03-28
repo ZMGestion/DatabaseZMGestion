@@ -1,0 +1,1 @@
+cat StoredProcedures/Roles/*.sql StoredProcedures/Usuarios/*.sql> Script.sql
