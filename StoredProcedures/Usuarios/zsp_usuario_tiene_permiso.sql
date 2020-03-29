@@ -18,7 +18,7 @@ BEGIN
             AND p.Procedimiento = pProcedimiento;
     
     IF pIdUsuario IS NULL THEN
-        SET pMensaje = 'No cuenta con los permisos para ejecutar esta accion.';
+        SET pMensaje = 'ERR_SIN_PERMISOS';
     ELSE
         SET pMensaje = 'OK';
     END IF;
