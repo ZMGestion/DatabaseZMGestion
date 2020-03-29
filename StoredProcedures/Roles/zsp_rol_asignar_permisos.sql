@@ -26,7 +26,7 @@ SALIR: BEGIN
 	END IF;
 
     IF NOT EXISTS(SELECT IdRol FROM Roles WHERE IdRol = pIdRol)THEN
-		SELECT 'ERR_ROL_NO_EXISTE' Mensaje;
+		SELECT 'ERR_NOEXISTE_ROL' Mensaje;
         LEAVE SALIR;
     END IF;
     
@@ -46,7 +46,7 @@ SALIR: BEGIN
 			END IF;
             SET pIdPermiso = pNumero;
             IF NOT EXISTS(SELECT IdPermiso FROM Permisos WHERE IdPermiso = pIdPermiso)THEN
-				SELECT 'ERR_PERMISO_LISTA_NO_EXISTE' Mensaje;
+				SELECT 'ERR_NOEXISTE_PERMISO_LISTA' Mensaje;
                 ROLLBACK;
                 LEAVE SALIR;
             END IF;

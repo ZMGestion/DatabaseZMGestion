@@ -4,7 +4,8 @@ DELIMITER $$
 CREATE PROCEDURE `zsp_usuario_dar_alta`(pToken varchar(256), pIdUsuario smallint)
 SALIR: BEGIN
 	/*
-        Permite cambiar el estado del Usuario a 'Alta' siempre y cuando no esté en estado 'Alta' ya. Devuelve OK o el mensaje de error en Mensaje.
+        Permite cambiar el estado del Usuario a 'Alta' siempre y cuando no esté en estado 'Alta' ya.
+        Devuelve OK o el mensaje de error en Mensaje.
 	*/
 	DECLARE pIdUsuarioEjecuta smallint;
 	DECLARE pMensaje text;
@@ -26,7 +27,7 @@ SALIR: BEGIN
         LEAVE SALIR;
 	END IF;
 
-    IF EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'A') THEN
+    IF NOT EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'B') THEN
 		SELECT 'ERR_USUARIO_ESTA_ALTA' pMensaje;
         LEAVE SALIR;
 	END IF;

@@ -4,7 +4,8 @@ CREATE PROCEDURE `zsp_usuario_dar_baja`(pToken varchar(256), pIdUsuario smallint
 
 SALIR: BEGIN
     /*
-        Procedimiento que permite dar de baja un usuario activo.
+        Permite cambiar el estado del Usuario a 'Baja' siempre y cuando no esté en estado 'Baja' ya.
+        Devuelve OK o el mensaje de error en Mensaje.
     */
     DECLARE pMensaje text;
     DECLARE pIdUsuarioEjecuta smallint;
@@ -26,7 +27,12 @@ SALIR: BEGIN
         LEAVE SALIR;
 	END IF;
 
-    IF EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'B') THEN
+    IF NOT EXISTS (SELECT IdUsuario From Usuarios WHERE IdUsuario = pIdUsuario) THEN
+		SELECT 'ERR_NOEXISTE_USUARIO' pMensaje;
+        LEAVE SALIR;
+	END IF;
+
+    IF NOT EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'A') THEN
 		SELECT 'ERR_USUARIO_ESTA_BAJA' pMensaje;
         LEAVE SALIR;
 	END IF;

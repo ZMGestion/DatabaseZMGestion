@@ -23,7 +23,7 @@ SALIR: BEGIN
     END IF;
     
     IF pIdRol IS NULL THEN
-		SELECT 'ERR_INGRESAR_ROL' Mensaje;
+		SELECT 'ERR_INDICAR_ROL' Mensaje;
         LEAVE SALIR;
 	END IF;
 
