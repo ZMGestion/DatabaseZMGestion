@@ -2,7 +2,7 @@ DROP PROCEDURE IF EXISTS `zsp_usuario_crear`;
 
 DELIMITER $$
 CREATE PROCEDURE `zsp_usuario_crear`(pToken char(32), pIdRol tinyint, pIdUbicacion tinyint,pIdTipoDocumento tinyint, pDocumento varchar(15), pNombres varchar(60), pApellidos varchar(60), pEstadoCivil char(1), pTelefono varchar(15),
-                                    pEmail varchar(120), pCantidadHijos tinyint, pUsuario varchar(40), pPassword varchar(255), pFechaNacimiento date, pFechaInicio date, OUT pMensaje varchar(255), OUT pIdUsuario smallint)
+                                    pEmail varchar(120), pCantidadHijos tinyint, pUsuario varchar(40), pPassword varchar(255), pFechaNacimiento date, pFechaInicio date, OUT pMensaje text, OUT pIdUsuario smallint)
 
 SALIR:BEGIN
     /*
@@ -13,97 +13,97 @@ SALIR:BEGIN
         Devuelve 'OK' + IdUsuario o el mensaje de error en  Mensaje.
     */
     DECLARE pIdUsuario smallint;
-    DECLARE pMensaje varchar(255);
+    DECLARE pMensaje text;
     DECLARE pIdUsuarioAud smallint;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'Error en la transacción. Contáctese con el administrador.' Mensaje;
+		SELECT 'ERR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
     IF (pIdRol IS NULL OR NOT EXISTS (SELECT IdRol FROM Roles WHERE IdRol = pIdRol)) THEN
-        SELECT 'El rol seleccionado no existe' pMensaje;
+        SELECT 'ERR_ROL_NO_EXISTE' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdUbicacion IS NULL OR NOT EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion)) THEN
-        SELECT 'La ubicación seleccionada no existe' pMensaje;
+        SELECT 'ERR_UBICACION_NO_EXISTE' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdTipoDocumento IS NULL OR NOT EXISTS (SELECT IdTipoDocumento FROM TiposDocumento WHERE IdTipoDocumento = pIdTipoDocumento)) THEN
-        SELECT 'El tipo de documento seleccionado no existe' pMensaje;
+        SELECT 'ERR_TIPODOC_NO_EXISTE' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pDocumento IS NULL OR pDocumento = '') THEN
-        SELECT 'Debe ingresar el documento' pMensaje;
+        SELECT 'ERR_INGRESAR_DOCUMENTO' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdTipoDocumento = pIdTipoDocumento AND Documento = pDocumento) THEN
-        SELECT 'Ya existe un usuario con el tipo y número de documento ingresado.' pMensaje;
+        SELECT 'ERR_EXISTE_USUARIO_TIPODOC_DOC' pMensaje;
         LEAVE SALIR;
     END IF;
     
     IF (pNombres IS NULL OR pNombres = '') THEN
-        SELECT 'Debe ingresar el nombre.' pMensaje;
+        SELECT 'ERR_INGRESAR_NOMBRE' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pApellidos IS NULL OR pApellidos = '') THEN
-        SELECT 'Debe ingresar el apellido.' pMensaje;
+        SELECT 'ERR_INGRESAR_APELLIDO' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pEstadoCivil NOT IN ('C', 'S', 'D')) THEN
-        SELECT 'Debe seleccionar un estado civil valido.' pMensaje;
+        SELECT 'ERR_ESTADOCIVIL_INVALIDO' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pTelefono IS NULL OR pTelefono = '') THEN
-        SELECT 'Debe ingresar el número de telefono.' pMensaje;
+        SELECT 'ERR_INGRESAR_TELEFONO' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pEmail IS NULL OR pEmail = '') THEN 
-        SELECT 'Debe ingresar el correo electronico.' pMensaje;
+        SELECT 'ERR_INGRESAR_EMAIL' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT Email FROM Usuarios WHERE Email = pEmail) THEN
-        SELECT 'El correo electrnico ingresado ya esta en uso.' pMensaje;
+        SELECT 'ERR_EXISTE_USUARIO_EMAIL' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pCantidadHijos IS NULL) THEN
-        SELECT 'Debe ingresar la cantidad de hijos.' pMensaje;
+        SELECT 'ERR_INGRESAR_CANTIDADHIJOS' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (LENGTH(pUsuario) <> LENGTH(REPLACE(pUsuario,' ',''))) THEN
-        SELECT 'Espacio no permitido en usuario.' pMensaje;
+        SELECT 'ERR_ESPACIO_USUARIO' pMensaje;
         LEAVE SALIR;
 	END IF;
 
     IF EXISTS(SELECT Usuario FROM Usuarios WHERE Usuario = pUsuario) THEN
-		SELECT 'El nombre del usuario ya existe.' pMensaje;
+		SELECT 'ERR_EXISTE_USUARIO_USUARIO' pMensaje;
 		LEAVE SALIR;
 	END IF;
 
     IF(pPassword IS NULL OR pPassword = '') THEN
-        SELECT 'Debe especificar la contraseña.' pMensaje;
+        SELECT 'ERR_INGRESAR_PASSWORD' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF(pFechaNacimiento IS NULL OR pFechaNacimiento > NOW()) THEN
-        SELECT 'La fecha de nacimiento debe ser anterior a la fecha actual.' pMensaje;
+        SELECT 'ERR_FECHANACIMIENTO_ANTERIOR' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF(pFechaInicio IS NULL OR pFechaInicio > NOW()) THEN
-        SELECT 'La fecha de inicio de actividad debe ser anterior a la fecha actual.' pMensaje;
+        SELECT 'ERR_FECHAINICIO_ANTERIOR' pMensaje;
         LEAVE SALIR;
     END IF;
 

@@ -9,12 +9,12 @@ SALIR: BEGIN
     */
 
     DECLARE pIdUsuario smallint;
-    DECLARE pMensaje varchar(255);
+    DECLARE pMensaje text;
     DECLARE pIdUsuarioAud smallint;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
-		SELECT 'Error en la transacción. Contáctese con el administrador.' Mensaje;
+		SELECT 'ERR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -25,19 +25,17 @@ SALIR: BEGIN
     END IF;
 
     IF pIdUsuario IS NULL THEN
-		SELECT 'Debe indicar un usuario.' pMensaje;
+		SELECT 'ERR_USUARIO_INDICAR' pMensaje;
         LEAVE SALIR;
 	END IF;
 
     IF EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'A') THEN
-		SELECT 'El usuario ya está estado de "Alta"' pMensaje;
+		SELECT 'ERR_USUARIO_ESTA_ALTA' pMensaje;
         LEAVE SALIR;
 	END IF;
 
-    START TRANSACTION;
-        UPDATE Usuarios SET Estado = 'A' WHERE IdUsuario = pIdUsuario;
-        SELECT 'OK' pMensaje;
-    COMMIT;
+    UPDATE Usuarios SET Estado = 'A' WHERE IdUsuario = pIdUsuario;
+
 END $$
 DELIMITER ;
 
