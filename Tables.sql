@@ -4,11 +4,11 @@
 -- Project :      modeloRelacional.DM1
 -- Author :       Bachs
 --
--- Date Created : Saturday, March 28, 2020 19:18:05
+-- Date Created : Sunday, March 29, 2020 17:17:07
 -- Target DBMS : MySQL 5.x
 --
 
-SET FOREIGN_KEY_CHECKS=0;
+SET FOREIGN_KEY_CHECKS = 0; 
 
 DROP TABLE IF EXISTS CategoriasProducto
 ;
@@ -84,7 +84,7 @@ COMMENT='Tabla que almacena las categorias de producto.'
 --
 
 CREATE TABLE Ciudades(
-    IdCiudad       INT            AUTO_INCREMENT,
+    IdCiudad       INT            NOT NULL,
     IdProvincia    INT            NOT NULL,
     IdPais         CHAR(2)        NOT NULL,
     Ciudad         VARCHAR(60)    NOT NULL,
@@ -130,6 +130,7 @@ CREATE TABLE Comprobantes(
     FechaBaja            DATETIME,
     Observaciones        VARCHAR(255),
     Estado               CHAR(1)           NOT NULL,
+    IdUsuario            SMALLINT          NOT NULL,
     PRIMARY KEY (IdComprobante)
 )ENGINE=INNODB
 COMMENT='Tabla que almacena los comprobantes.'
@@ -265,7 +266,7 @@ COMMENT='Tabla que almacena los pa�ses.'
 --
 
 CREATE TABLE Permisos(
-    IdPermiso        SMALLINT        AUTO_INCREMENT,
+    IdPermiso        SMALLINT        NOT NULL,
     Permiso          VARCHAR(40)     NOT NULL,
     Procedimiento    VARCHAR(255)    NOT NULL,
     Descripcion      VARCHAR(255),
@@ -362,7 +363,7 @@ COMMENT='Tabla que almacena los productos finales.'
 --
 
 CREATE TABLE Provincias(
-    IdProvincia    INT            AUTO_INCREMENT,
+    IdProvincia    INT            NOT NULL,
     IdPais         CHAR(2)        NOT NULL,
     Provincia      VARCHAR(40)    NOT NULL,
     PRIMARY KEY (IdProvincia, IdPais)
@@ -383,6 +384,7 @@ CREATE TABLE Remitos(
     FechaAlta        DATETIME        NOT NULL,
     Observaciones    VARCHAR(255),
     Estado           CHAR(1)         NOT NULL,
+    IdUsuario        SMALLINT        NOT NULL,
     PRIMARY KEY (IdRemito)
 )ENGINE=INNODB
 COMMENT='Tabla que almacena los remitos.'
@@ -448,7 +450,7 @@ COMMENT='Tabla que almacena las telas.'
 --
 
 CREATE TABLE TiposDocumento(
-    IdTipoDocumento    TINYINT         AUTO_INCREMENT,
+    IdTipoDocumento    TINYINT         NOT NULL,
     TipoDocumento      VARCHAR(40)     NOT NULL,
     Descripcion        VARCHAR(255),
     PRIMARY KEY (IdTipoDocumento)
@@ -594,10 +596,16 @@ CREATE UNIQUE INDEX UI_NumeroComprobanteTipo ON Comprobantes(NumeroComprobante, 
 CREATE INDEX Ref3242 ON Comprobantes(IdVenta)
 ;
 -- 
+-- INDEX: Ref286 
+--
+
+CREATE INDEX Ref286 ON Comprobantes(IdUsuario)
+;
+-- 
 -- INDEX: Ref1716 
 --
 
-CREATE INDEX Ref1716 ON Domicilios(IdCiudad, IdPais, IdProvincia)
+CREATE INDEX Ref1716 ON Domicilios(IdProvincia, IdCiudad, IdPais)
 ;
 -- 
 -- INDEX: Ref1117 
@@ -624,16 +632,16 @@ CREATE UNIQUE INDEX UI_Grupo ON GruposProducto(Grupo)
 CREATE INDEX Ref3383 ON LineasProducto(IdLineaProductoPadre)
 ;
 -- 
--- INDEX: Ref2149 
---
-
-CREATE INDEX Ref2149 ON LineasProducto(IdProductoFinal)
-;
--- 
 -- INDEX: Ref2784 
 --
 
 CREATE INDEX Ref2784 ON LineasProducto(IdUbicacion)
+;
+-- 
+-- INDEX: Ref2149 
+--
+
+CREATE INDEX Ref2149 ON LineasProducto(IdProductoFinal)
 ;
 -- 
 -- INDEX: UI_Lustre 
@@ -744,6 +752,12 @@ CREATE INDEX Ref4280 ON Productos(IdTipoProducto)
 CREATE UNIQUE INDEX UI_IdProducto_IdTela_IdLustre ON ProductosFinales(IdProducto, IdTela, IdLustre)
 ;
 -- 
+-- INDEX: Ref2325 
+--
+
+CREATE INDEX Ref2325 ON ProductosFinales(IdLustre)
+;
+-- 
 -- INDEX: Ref2426 
 --
 
@@ -754,12 +768,6 @@ CREATE INDEX Ref2426 ON ProductosFinales(IdTela)
 --
 
 CREATE INDEX Ref2627 ON ProductosFinales(IdProducto)
-;
--- 
--- INDEX: Ref2325 
---
-
-CREATE INDEX Ref2325 ON ProductosFinales(IdLustre)
 ;
 -- 
 -- INDEX: UI_IdPaisProvincia 
@@ -780,16 +788,22 @@ CREATE UNIQUE INDEX UI_IdProvincia ON Provincias(IdProvincia)
 CREATE INDEX Ref1414 ON Provincias(IdPais)
 ;
 -- 
+-- INDEX: Ref2772 
+--
+
+CREATE INDEX Ref2772 ON Remitos(IdUbicacion)
+;
+-- 
 -- INDEX: Ref1563 
 --
 
 CREATE INDEX Ref1563 ON Remitos(IdDomicilio)
 ;
 -- 
--- INDEX: Ref2772 
+-- INDEX: Ref285 
 --
 
-CREATE INDEX Ref2772 ON Remitos(IdUbicacion)
+CREATE INDEX Ref285 ON Remitos(IdUsuario)
 ;
 -- 
 -- INDEX: UI_Rol 
@@ -957,6 +971,11 @@ ALTER TABLE Comprobantes ADD CONSTRAINT RefVentas42
     REFERENCES Ventas(IdVenta)
 ;
 
+ALTER TABLE Comprobantes ADD CONSTRAINT RefUsuarios86 
+    FOREIGN KEY (IdUsuario)
+    REFERENCES Usuarios(IdUsuario)
+;
+
 
 -- 
 -- TABLE: Domicilios 
@@ -982,14 +1001,14 @@ ALTER TABLE LineasProducto ADD CONSTRAINT RefLineasProducto83
     REFERENCES LineasProducto(IdLineaProducto)
 ;
 
-ALTER TABLE LineasProducto ADD CONSTRAINT RefProductosFinales49 
-    FOREIGN KEY (IdProductoFinal)
-    REFERENCES ProductosFinales(IdProductoFinal)
-;
-
 ALTER TABLE LineasProducto ADD CONSTRAINT RefUbicaciones84 
     FOREIGN KEY (IdUbicacion)
     REFERENCES Ubicaciones(IdUbicacion)
+;
+
+ALTER TABLE LineasProducto ADD CONSTRAINT RefProductosFinales49 
+    FOREIGN KEY (IdProductoFinal)
+    REFERENCES ProductosFinales(IdProductoFinal)
 ;
 
 
@@ -1087,6 +1106,11 @@ ALTER TABLE Productos ADD CONSTRAINT RefTiposProducto80
 -- TABLE: ProductosFinales 
 --
 
+ALTER TABLE ProductosFinales ADD CONSTRAINT RefLustres25 
+    FOREIGN KEY (IdLustre)
+    REFERENCES Lustres(IdLustre)
+;
+
 ALTER TABLE ProductosFinales ADD CONSTRAINT RefTelas26 
     FOREIGN KEY (IdTela)
     REFERENCES Telas(IdTela)
@@ -1095,11 +1119,6 @@ ALTER TABLE ProductosFinales ADD CONSTRAINT RefTelas26
 ALTER TABLE ProductosFinales ADD CONSTRAINT RefProductos27 
     FOREIGN KEY (IdProducto)
     REFERENCES Productos(IdProducto)
-;
-
-ALTER TABLE ProductosFinales ADD CONSTRAINT RefLustres25 
-    FOREIGN KEY (IdLustre)
-    REFERENCES Lustres(IdLustre)
 ;
 
 
@@ -1117,14 +1136,19 @@ ALTER TABLE Provincias ADD CONSTRAINT RefPaises14
 -- TABLE: Remitos 
 --
 
+ALTER TABLE Remitos ADD CONSTRAINT RefUbicaciones72 
+    FOREIGN KEY (IdUbicacion)
+    REFERENCES Ubicaciones(IdUbicacion)
+;
+
 ALTER TABLE Remitos ADD CONSTRAINT RefDomicilios63 
     FOREIGN KEY (IdDomicilio)
     REFERENCES Domicilios(IdDomicilio)
 ;
 
-ALTER TABLE Remitos ADD CONSTRAINT RefUbicaciones72 
-    FOREIGN KEY (IdUbicacion)
-    REFERENCES Ubicaciones(IdUbicacion)
+ALTER TABLE Remitos ADD CONSTRAINT RefUsuarios85 
+    FOREIGN KEY (IdUsuario)
+    REFERENCES Usuarios(IdUsuario)
 ;
 
 
@@ -1217,4 +1241,4 @@ ALTER TABLE Ventas ADD CONSTRAINT RefUsuarios48
     REFERENCES Usuarios(IdUsuario)
 ;
 
-SET FOREIGN_KEY_CHECKS=1;
+SET FOREIGN_KEY_CHECKS = 1;

@@ -23,17 +23,17 @@ SALIR:BEGIN
 	END;
 
     IF (pIdRol IS NULL OR NOT EXISTS (SELECT IdRol FROM Roles WHERE IdRol = pIdRol)) THEN
-        SELECT 'ERR_ROL_NO_EXISTE' pMensaje;
+        SELECT 'ERR_NOEXISTE_ROL' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdUbicacion IS NULL OR NOT EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion)) THEN
-        SELECT 'ERR_UBICACION_NO_EXISTE' pMensaje;
+        SELECT 'ERR_NOEXISTE_UBICACION' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdTipoDocumento IS NULL OR NOT EXISTS (SELECT IdTipoDocumento FROM TiposDocumento WHERE IdTipoDocumento = pIdTipoDocumento)) THEN
-        SELECT 'ERR_TIPODOC_NO_EXISTE' pMensaje;
+        SELECT 'ERR_NOEXISTE_TIPODOC' pMensaje;
         LEAVE SALIR;
     END IF;
 
@@ -58,7 +58,7 @@ SALIR:BEGIN
     END IF;
 
     IF (pEstadoCivil NOT IN ('C', 'S', 'D')) THEN
-        SELECT 'ERR_ESTADOCIVIL_INVALIDO' pMensaje;
+        SELECT 'ERR_INVALIDO_ESTADOCIVIL' pMensaje;
         LEAVE SALIR;
     END IF;
 
@@ -73,7 +73,7 @@ SALIR:BEGIN
     END IF;
 
     IF EXISTS (SELECT Email FROM Usuarios WHERE Email = pEmail) THEN
-        SELECT 'ERR_EXISTE_USUARIO_EMAIL' pMensaje;
+        SELECT 'ERR_EXISTE_EMAIL' pMensaje;
         LEAVE SALIR;
     END IF;
 
@@ -88,7 +88,7 @@ SALIR:BEGIN
 	END IF;
 
     IF EXISTS(SELECT Usuario FROM Usuarios WHERE Usuario = pUsuario) THEN
-		SELECT 'ERR_EXISTE_USUARIO_USUARIO' pMensaje;
+		SELECT 'ERR_EXISTE_USUARIO' pMensaje;
 		LEAVE SALIR;
 	END IF;
 

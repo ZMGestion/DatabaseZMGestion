@@ -7,28 +7,28 @@ SALIR: BEGIN
 		Permite crear un rol controlando que el nombre no exista ya. 
 		Devuelve OK + Id o el mensaje de error en Mensaje.
 	*/
-    DECLARE pIdUsuario smallint;
+    DECLARE pIdUsuarioEjecuta smallint;
 	DECLARE pMensaje text;
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'Error en la transacción. Contáctese con el administrador.' Mensaje;
+		SELECT 'ERR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
     
-	CALL zsp_usuario_tiene_permiso(pToken, 'zsp_rol_crear', pIdUsuario, pMensaje);
+	CALL zsp_usuario_tiene_permiso(pToken, 'zsp_rol_crear', pIdUsuarioEjecuta, pMensaje);
 	IF pMensaje!='OK' THEN
 		SELECT pMensaje Mensaje;
 		LEAVE SALIR;
 	END IF;
     
 	IF (pRol IS NULL OR pRol = '') THEN
-        SELECT 'Debe ingresar el nombre del rol.' Mensaje;
+        SELECT 'ERR_INGRESAR_NOMBREROL' Mensaje;
         LEAVE SALIR;
 	END IF;
     
     IF EXISTS(SELECT Rol FROM Roles WHERE Rol = pRol) THEN
-		SELECT 'El nombre del rol ya existe.' Mensaje;
+		SELECT 'ERR_EXISTE_NOMBREROL' Mensaje;
 		LEAVE SALIR;
 	END IF;	
 

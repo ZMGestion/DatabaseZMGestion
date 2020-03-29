@@ -27,42 +27,42 @@ SALIR: BEGIN
     END IF;
 
 	IF pIdUsuario = 1 THEN
-		SELECT 'ERR_USUARIO_BORRAR_ADAM' pMensaje;
+		SELECT 'ERR_BORRAR_USUARIO_ADAM' pMensaje;
 		LEAVE SALIR;
 	END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Presupuestos p USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_USUARIO_BORRAR_PRESUPUESTO' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_PRESUPUESTO' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Ventas v USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_USUARIO_BORRAR_VENTA' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_VENTA' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN OrdenesProduccion op USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_USUARIO_BORRAR_OP' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_OP' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Comprobantes c USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_USUARIO_BORRAR_COMPROBANTE' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_COMPROBANTE' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Remitos r USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_USUARIO_BORRAR_REMITO' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_REMITO' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Tareas t ON u.IdUsuario = t.IdUsuarioFabricante WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_USUARIO_BORRAR_TAREA_F' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_TAREA_F' pMensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Tareas t ON u.IdUsuario = t.IdUsuarioRevisor WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_USUARIO_BORRAR_TAREA_R' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_TAREA_R' pMensaje;
         LEAVE SALIR;
     END IF;
     
