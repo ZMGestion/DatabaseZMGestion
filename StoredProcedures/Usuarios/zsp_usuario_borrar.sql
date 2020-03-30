@@ -1,22 +1,22 @@
 DROP PROCEDURE IF EXISTS `zsp_usuario_borrar`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_borrar`(pToken varchar(256), pIdUsuario smallint, OUT pMensaje text)
+CREATE PROCEDURE `zsp_usuario_borrar`(pToken varchar(256), pIdUsuario smallint)
 
 
 SALIR: BEGIN
 	/*
         Procedimiento que permite a un administrador borrar un usuario.
-        Debe controlar que  no haya creado un presupuesto, una venta, una orden de produccion, un remito, un comprobante, que se le 
-        haya asignado al menos una tarea o que haya revisado al menos una tarea. 
-        Devuelve 'OK' o el error en pMensaje
+        Debe controlar que no haya creado un presupuesto, venta, orden de produccion, remito, comprobante, o que no se le 
+        haya asignado o haya revisado alguna tarea. 
+        Devuelve 'OK' o el error en Mensaje.
     */
     DECLARE pMensaje text;
     DECLARE pIdUsuarioEjecuta smallint;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
 		SHOW ERRORS;
-		SELECT 'ERR_TRANSACCION' pMensaje;
+		SELECT 'ERR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -27,46 +27,46 @@ SALIR: BEGIN
     END IF;
 
 	IF pIdUsuario = 1 THEN
-		SELECT 'ERR_BORRAR_USUARIO_ADAM' pMensaje;
+		SELECT 'ERR_BORRAR_USUARIO_ADAM' Mensaje;
 		LEAVE SALIR;
 	END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Presupuestos p USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_PRESUPUESTO' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_PRESUPUESTO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Ventas v USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_VENTA' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_VENTA' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN OrdenesProduccion op USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_OP' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_OP' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Comprobantes c USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_COMPROBANTE' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_COMPROBANTE' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Remitos r USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_REMITO' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_REMITO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Tareas t ON u.IdUsuario = t.IdUsuarioFabricante WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_TAREA_F' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_TAREA_F' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Tareas t ON u.IdUsuario = t.IdUsuarioRevisor WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_TAREA_R' pMensaje;
+        SELECT 'ERR_BORRAR_USUARIO_TAREA_R' Mensaje;
         LEAVE SALIR;
     END IF;
     
 	DELETE FROM Usuarios WHERE IdUsuario = pIdUsuario;
-    SELECT 'OK' pMensaje;
+    SELECT 'OK' Mensaje;
 END $$
 DELIMITER ;
