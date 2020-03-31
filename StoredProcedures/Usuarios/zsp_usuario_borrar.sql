@@ -6,7 +6,7 @@ CREATE PROCEDURE `zsp_usuario_borrar`(pToken varchar(256), pIdUsuario smallint)
 
 SALIR: BEGIN
 	/*
-        Procedimiento que permite a un administrador borrar un usuario.
+        Procedimiento que permite a un usuario borrar un usuario.
         Debe controlar que no haya creado un presupuesto, venta, orden de produccion, remito, comprobante, o que no se le 
         haya asignado o haya revisado alguna tarea. 
         Devuelve 'OK' o el error en Mensaje.
