@@ -1,10 +1,10 @@
 --
 -- ER/Studio 8.0 SQL Code Generation
--- Company :      Bachs
+-- Company :      NL
 -- Project :      modeloRelacional.DM1
--- Author :       Bachs
+-- Author :       NL
 --
--- Date Created : Sunday, March 29, 2020 17:17:07
+-- Date Created : Monday, March 30, 2020 20:08:29
 -- Target DBMS : MySQL 5.x
 --
 
@@ -123,6 +123,7 @@ COMMENT='Tabla que almacena los datos de los clientes de la empresa.'
 CREATE TABLE Comprobantes(
     IdComprobante        INT               AUTO_INCREMENT,
     IdVenta              INT               NOT NULL,
+    IdUsuario            SMALLINT          NOT NULL,
     Tipo                 CHAR(1)           NOT NULL,
     NumeroComprobante    INT               NOT NULL,
     Monto                DECIMAL(10, 2)    NOT NULL,
@@ -130,7 +131,6 @@ CREATE TABLE Comprobantes(
     FechaBaja            DATETIME,
     Observaciones        VARCHAR(255),
     Estado               CHAR(1)           NOT NULL,
-    IdUsuario            SMALLINT          NOT NULL,
     PRIMARY KEY (IdComprobante)
 )ENGINE=INNODB
 COMMENT='Tabla que almacena los comprobantes.'
@@ -379,12 +379,12 @@ CREATE TABLE Remitos(
     IdRemito         INT             AUTO_INCREMENT,
     IdDomicilio      INT,
     IdUbicacion      TINYINT,
+    IdUsuario        SMALLINT        NOT NULL,
     Tipo             CHAR(1)         NOT NULL,
     FechaEntrega     DATETIME,
     FechaAlta        DATETIME        NOT NULL,
     Observaciones    VARCHAR(255),
     Estado           CHAR(1)         NOT NULL,
-    IdUsuario        SMALLINT        NOT NULL,
     PRIMARY KEY (IdRemito)
 )ENGINE=INNODB
 COMMENT='Tabla que almacena los remitos.'
@@ -507,6 +507,8 @@ CREATE TABLE Usuarios(
     Usuario            VARCHAR(40)     NOT NULL,
     Password           VARCHAR(255)    NOT NULL,
     Token              VARCHAR(256),
+    FechaUltIntento    DATETIME,
+    Intentos           SMALLINT        NOT NULL,
     FechaNacimiento    DATE            NOT NULL,
     FechaInicio        DATE            NOT NULL,
     FechaAlta          DATETIME        NOT NULL,
@@ -557,7 +559,7 @@ CREATE UNIQUE INDEX UI_IdCiudad ON Ciudades(IdCiudad)
 -- INDEX: Ref1615 
 --
 
-CREATE INDEX Ref1615 ON Ciudades(IdPais, IdProvincia)
+CREATE INDEX Ref1615 ON Ciudades(IdProvincia, IdPais)
 ;
 -- 
 -- INDEX: UI_Email 
@@ -605,7 +607,7 @@ CREATE INDEX Ref286 ON Comprobantes(IdUsuario)
 -- INDEX: Ref1716 
 --
 
-CREATE INDEX Ref1716 ON Domicilios(IdProvincia, IdCiudad, IdPais)
+CREATE INDEX Ref1716 ON Domicilios(IdPais, IdProvincia, IdCiudad)
 ;
 -- 
 -- INDEX: Ref1117 
@@ -626,6 +628,12 @@ CREATE UNIQUE INDEX UI_Parametro ON Empresa(Parametro)
 CREATE UNIQUE INDEX UI_Grupo ON GruposProducto(Grupo)
 ;
 -- 
+-- INDEX: Ref2149 
+--
+
+CREATE INDEX Ref2149 ON LineasProducto(IdProductoFinal)
+;
+-- 
 -- INDEX: Ref3383 
 --
 
@@ -636,12 +644,6 @@ CREATE INDEX Ref3383 ON LineasProducto(IdLineaProductoPadre)
 --
 
 CREATE INDEX Ref2784 ON LineasProducto(IdUbicacion)
-;
--- 
--- INDEX: Ref2149 
---
-
-CREATE INDEX Ref2149 ON LineasProducto(IdProductoFinal)
 ;
 -- 
 -- INDEX: UI_Lustre 
@@ -722,6 +724,12 @@ CREATE INDEX Ref2781 ON Presupuestos(IdUbicacion)
 CREATE UNIQUE INDEX UI_ProductoIdCategoriaProductoIdGrupoProducto ON Productos(Producto, IdCategoriaProducto, IdGrupoProducto)
 ;
 -- 
+-- INDEX: Ref4280 
+--
+
+CREATE INDEX Ref4280 ON Productos(IdTipoProducto)
+;
+-- 
 -- INDEX: Ref3032 
 --
 
@@ -738,12 +746,6 @@ CREATE INDEX Ref3133 ON Productos(IdGrupoProducto)
 --
 
 CREATE INDEX Ref2237 ON Productos(IdPrecio)
-;
--- 
--- INDEX: Ref4280 
---
-
-CREATE INDEX Ref4280 ON Productos(IdTipoProducto)
 ;
 -- 
 -- INDEX: UI_IdProducto_IdTela_IdLustre 
@@ -788,16 +790,16 @@ CREATE UNIQUE INDEX UI_IdProvincia ON Provincias(IdProvincia)
 CREATE INDEX Ref1414 ON Provincias(IdPais)
 ;
 -- 
--- INDEX: Ref2772 
---
-
-CREATE INDEX Ref2772 ON Remitos(IdUbicacion)
-;
--- 
 -- INDEX: Ref1563 
 --
 
 CREATE INDEX Ref1563 ON Remitos(IdDomicilio)
+;
+-- 
+-- INDEX: Ref2772 
+--
+
+CREATE INDEX Ref2772 ON Remitos(IdUbicacion)
 ;
 -- 
 -- INDEX: Ref285 
@@ -996,6 +998,11 @@ ALTER TABLE Domicilios ADD CONSTRAINT RefClientes17
 -- TABLE: LineasProducto 
 --
 
+ALTER TABLE LineasProducto ADD CONSTRAINT RefProductosFinales49 
+    FOREIGN KEY (IdProductoFinal)
+    REFERENCES ProductosFinales(IdProductoFinal)
+;
+
 ALTER TABLE LineasProducto ADD CONSTRAINT RefLineasProducto83 
     FOREIGN KEY (IdLineaProductoPadre)
     REFERENCES LineasProducto(IdLineaProducto)
@@ -1004,11 +1011,6 @@ ALTER TABLE LineasProducto ADD CONSTRAINT RefLineasProducto83
 ALTER TABLE LineasProducto ADD CONSTRAINT RefUbicaciones84 
     FOREIGN KEY (IdUbicacion)
     REFERENCES Ubicaciones(IdUbicacion)
-;
-
-ALTER TABLE LineasProducto ADD CONSTRAINT RefProductosFinales49 
-    FOREIGN KEY (IdProductoFinal)
-    REFERENCES ProductosFinales(IdProductoFinal)
 ;
 
 
@@ -1081,6 +1083,11 @@ ALTER TABLE Presupuestos ADD CONSTRAINT RefUbicaciones81
 -- TABLE: Productos 
 --
 
+ALTER TABLE Productos ADD CONSTRAINT RefTiposProducto80 
+    FOREIGN KEY (IdTipoProducto)
+    REFERENCES TiposProducto(IdTipoProducto)
+;
+
 ALTER TABLE Productos ADD CONSTRAINT RefCategoriasProducto32 
     FOREIGN KEY (IdCategoriaProducto)
     REFERENCES CategoriasProducto(IdCategoriaProducto)
@@ -1094,11 +1101,6 @@ ALTER TABLE Productos ADD CONSTRAINT RefGruposProducto33
 ALTER TABLE Productos ADD CONSTRAINT RefPrecios37 
     FOREIGN KEY (IdPrecio)
     REFERENCES Precios(IdPrecio)
-;
-
-ALTER TABLE Productos ADD CONSTRAINT RefTiposProducto80 
-    FOREIGN KEY (IdTipoProducto)
-    REFERENCES TiposProducto(IdTipoProducto)
 ;
 
 
@@ -1136,14 +1138,14 @@ ALTER TABLE Provincias ADD CONSTRAINT RefPaises14
 -- TABLE: Remitos 
 --
 
-ALTER TABLE Remitos ADD CONSTRAINT RefUbicaciones72 
-    FOREIGN KEY (IdUbicacion)
-    REFERENCES Ubicaciones(IdUbicacion)
-;
-
 ALTER TABLE Remitos ADD CONSTRAINT RefDomicilios63 
     FOREIGN KEY (IdDomicilio)
     REFERENCES Domicilios(IdDomicilio)
+;
+
+ALTER TABLE Remitos ADD CONSTRAINT RefUbicaciones72 
+    FOREIGN KEY (IdUbicacion)
+    REFERENCES Ubicaciones(IdUbicacion)
 ;
 
 ALTER TABLE Remitos ADD CONSTRAINT RefUsuarios85 

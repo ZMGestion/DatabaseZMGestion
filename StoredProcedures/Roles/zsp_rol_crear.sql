@@ -5,7 +5,7 @@ CREATE PROCEDURE `zsp_rol_crear`(pToken varchar(256), pRol varchar(40), pDescrip
 SALIR: BEGIN
 	/*
 		Permite crear un rol controlando que el nombre no exista ya. 
-		Devuelve OK + Id o el mensaje de error en Mensaje.
+		Devuelve 'OK'+Id o el mensaje de error en Mensaje.
 	*/
     DECLARE pIdUsuarioEjecuta smallint;
 	DECLARE pMensaje text;
@@ -33,9 +33,10 @@ SALIR: BEGIN
 	END IF;	
 
     START TRANSACTION;
-
+		
         INSERT INTO Roles VALUES (DEFAULT, pRol, 'A', NULLIF(pDescripcion,''));
-		SELECT 'OK' Mensaje;
+		SET pIdRol = (SELECT IdRol FROM Roles WHERE Rol = pRol);
+		SELECT CONCAT('OK',pIdRol) Mensaje;
 
 	COMMIT;
 END $$
