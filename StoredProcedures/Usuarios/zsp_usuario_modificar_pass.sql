@@ -1,7 +1,7 @@
 DROP PROCEDURE IF EXISTS `zsp_usuario_modificar_pass`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_modificar_pass`(pToken varchar(256), pIdUsuario smallint ,pPasswordActual varchar(255), pPasswordNueva varchar(255))
+CREATE PROCEDURE `zsp_usuario_modificar_pass`(pToken varchar(256),pPasswordActual varchar(255), pPasswordNueva varchar(255))
 
 SALIR:BEGIN
     /*
@@ -10,8 +10,6 @@ SALIR:BEGIN
     */
     DECLARE pMensaje text;
     DECLARE pIdUsuarioEjecuta smallint;
-    DECLARE pIdUsuarioAux smallint;
-
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -19,22 +17,14 @@ SALIR:BEGIN
         ROLLBACK;
 	END;
 
-    IF (pIdUsuario IS NULL OR NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario)) THEN
-        SELECT 'ERR_NOEXISTE_USUARIO' Mensaje;
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_modificar_pass', pIdUsuarioEjecuta, pMensaje);
+
+    IF pMensaje != 'OK' THEN
+        SELECT pMensaje Mensaje;
         LEAVE SALIR;
     END IF;
 
-    SET pIdUsuarioAux = (SELECT IdUsuario FROM Usuarios WHERE Token = pToken);
-
-    IF (pIdUsuarioAux != pIdUsuario) THEN 
-        CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_modificar_pass', pIdUsuarioEjecuta, pMensaje);
-            IF pMensaje != 'OK' THEN
-                SELECT pMensaje Mensaje;
-                LEAVE SALIR;
-            END IF;
-    END IF;
-
-    IF NOT EXISTS(SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario AND Password = pPasswordActual) THEN
+    IF NOT EXISTS(SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuarioEjecuta AND Password = pPasswordActual) THEN
         SELECT 'ERR_PASSWORD_INCORRECTA' Mensaje;
         LEAVE SALIR;
     END IF;
@@ -52,7 +42,7 @@ SALIR:BEGIN
     
     UPDATE  Usuarios 
     SET Password = pPasswordNueva
-    WHERE IdUsuario = pIdUsuario;
+    WHERE IdUsuario = pIdUsuarioEjecuta;
     SELECT 'OK ' Mensaje;
 END $$
 DELIMITER ;
