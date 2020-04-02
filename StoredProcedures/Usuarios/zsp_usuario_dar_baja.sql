@@ -39,6 +39,7 @@ SALIR: BEGIN
 		
 
 	UPDATE Usuarios SET Estado = 'B' WHERE IdUsuario = pIdUsuario;
+    SELECT'OK', Mensaje;
 
 END $$
 DELIMITER ;

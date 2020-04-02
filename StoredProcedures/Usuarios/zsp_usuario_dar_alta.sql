@@ -23,16 +23,20 @@ SALIR: BEGIN
     END IF;
 
     IF pIdUsuario IS NULL THEN
-		SELECT 'ERR_INDICAR_USUARIO' pMensaje;
+		SELECT 'ERR_INDICAR_USUARIO' Mensaje;
         LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'B') THEN
-		SELECT 'ERR_USUARIO_ESTA_ALTA' pMensaje;
+		SELECT 'ERR_USUARIO_ESTA_ALTA' Mensaje;
         LEAVE SALIR;
 	END IF;
 
-    UPDATE Usuarios SET Estado = 'A' WHERE IdUsuario = pIdUsuario;
+    UPDATE Usuarios
+    SET Estado = 'A',
+        Intentos = 0
+    WHERE IdUsuario = pIdUsuario;
+    SELECT'OK' Mensaje;
 
 END $$
 DELIMITER ;

@@ -117,7 +117,7 @@ SALIR:BEGIN
     START TRANSACTION;
         INSERT INTO Usuarios SELECT 0, pIdRol, pIdUbicacion, pIdTipoDocumento, pDocumento, pNombres, pApellidos, pEstadoCivil, pTelefono, pEmail, pCantidadHijos, pUsuario, pPassword, NULL, 0, NULL ,pFechaNacimiento, pFechaInicio, NOW(), NULL,'A';
         SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Email = pEmail);
-        SELECT 'OK ', pMensaje;
+        SELECT 'OK ', Mensaje;
     COMMIT;
 END $$
 DELIMITER ;
