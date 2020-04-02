@@ -1,5 +1,4 @@
 DROP PROCEDURE IF EXISTS `zsp_usuario_crear`;
-
 DELIMITER $$
 CREATE PROCEDURE `zsp_usuario_crear`(pToken varchar(256), pIdRol tinyint, pIdUbicacion tinyint,pIdTipoDocumento tinyint, pDocumento varchar(15), pNombres varchar(60), pApellidos varchar(60), pEstadoCivil char(1), pTelefono varchar(15),
                                     pEmail varchar(120), pCantidadHijos tinyint, pUsuario varchar(40), pPassword varchar(255), pFechaNacimiento date, pFechaInicio date, OUT pIdUsuario smallint)
@@ -122,4 +121,5 @@ SALIR:BEGIN
     COMMIT;
 END $$
 DELIMITER ;
+
 
