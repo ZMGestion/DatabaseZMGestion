@@ -14,14 +14,14 @@ TRUNCATE TABLE ZMGestion.TiposDocumento;
 SET FOREIGN_KEY_CHECKS = 1; 
 
 /* Carga inicial roles */
-INSERT INTO ZMGestion.Roles (`IdRol`, `Rol`, `Descripcion`, `FechaAlta`) VALUES (1, ', Administradores', 'Rol para los administradores de ZMGestion.', NOW());
-INSERT INTO ZMGestion.Roles (`IdRol`, `Rol`, `Descripcion`, `FechaAlta`) VALUES (2, ', Vendedores', 'Rol para los vendedores de ZMGestion.', NOW());
-INSERT INTO ZMGestion.Roles (`IdRol`, `Rol`, `Descripcion`, `FechaAlta`) VALUES (3, ', Fabricantes', 'Rol para los fabricantes de ZMGestion.', NOW());
+INSERT INTO ZMGestion.Roles (`IdRol`, `Rol`, `Descripcion`, `FechaAlta`) VALUES (1, 'Administradores', 'Rol para los administradores de ZMGestion.', NOW());
+INSERT INTO ZMGestion.Roles (`IdRol`, `Rol`, `Descripcion`, `FechaAlta`) VALUES (2, 'Vendedores', 'Rol para los vendedores de ZMGestion.', NOW());
+INSERT INTO ZMGestion.Roles (`IdRol`, `Rol`, `Descripcion`, `FechaAlta`) VALUES (3, 'Fabricantes', 'Rol para los fabricantes de ZMGestion.', NOW());
 
 /* Carga inicial permisos */
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (1, 'Crear rol', 'Permite a un usuario crear un nuevo rol.', 'zsp_rol_crear');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (2, 'Borrar rol', 'Permite a un usuario borrar un rol existente, siempre y cuando ningun usuario tenga ese rol.', 'zsp_rol_borrar');
-INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (3, 'Asignar permisos a rol', 'Permite a un usuario asignar permisos a un rol existente.', 'zsp_rol_asignar_permiso');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (3, 'Asignar permisos a rol', 'Permite a un usuario asignar permisos a un rol existente.', 'zsp_rol_asignar_permisos');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (4, 'Crear usuario', 'Permite a un usuario crear nuevos usuarios.', 'zsp_usuario_crear');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (5, 'Borrar usuario', 'Permite a un usuario borrar a otros usuarios siempre y cuando éste no tenga presupuestos, ventas, órdenes de producción, tareas o comprobantes asociados. Tampoco puede borrar al super administrador.', 'zsp_usuario_borrar');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (6, 'Modificar usuario', 'Permite a un usuario modificar a otros usuarios.', 'zsp_usuario_modificar');
