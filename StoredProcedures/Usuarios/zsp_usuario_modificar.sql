@@ -12,7 +12,7 @@ SALIR:BEGIN
         Todos los campos son obligatorios.
         Devuelve 'OK' + IdUsuario o el mensaje de error en  Mensaje.
     */
-    DECLARE pIdUsuario smallint;
+
     DECLARE pMensaje text;
     DECLARE pIdUsuarioEjecuta smallint;
 
@@ -28,99 +28,93 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF (pIdUsario IS NULL OR NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsario)) THEN
-        SELECT 'ERR_NOEXISTE_USUARIO' pMensaje;
+    IF (pIdUsuario IS NULL OR NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario)) THEN
+        SELECT 'ERR_NOEXISTE_USUARIO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdRol IS NULL OR NOT EXISTS (SELECT IdRol FROM Roles WHERE IdRol = pIdRol)) THEN
-        SELECT 'ERR_NOEXISTE_ROL' pMensaje;
+        SELECT 'ERR_NOEXISTE_ROL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdUbicacion IS NULL OR NOT EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion)) THEN
-        SELECT 'ERR_NOEXISTE_UBICACION' pMensaje;
+        SELECT 'ERR_NOEXISTE_UBICACION' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdTipoDocumento IS NULL OR NOT EXISTS (SELECT IdTipoDocumento FROM TiposDocumento WHERE IdTipoDocumento = pIdTipoDocumento)) THEN
-        SELECT 'ERR_NOEXISTE_TIPODOC' pMensaje;
+        SELECT 'ERR_NOEXISTE_TIPODOC' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pDocumento IS NULL OR pDocumento = '') THEN
-        SELECT 'ERR_INGRESAR_DOCUMENTO' pMensaje;
+        SELECT 'ERR_INGRESAR_DOCUMENTO' Mensaje;
         LEAVE SALIR;
     END IF;
 
-    IF EXISTS (SELECT IdUsuario FROM Usuarios WHERE TipoDocumento = pIdTipoDocumento AND Documento = pDocumento AND IdUsuario != pIdUsuario) THEN
-        SELECT 'ERR_EXISTE_USUARIO_TIPODOC_DOC' pMensaje;
+    IF EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdTipoDocumento = pIdTipoDocumento AND Documento = pDocumento AND IdUsuario != pIdUsuario) THEN
+        SELECT 'ERR_EXISTE_USUARIO_TIPODOC_DOC' Mensaje;
         LEAVE SALIR;
     END IF;
     
     IF (pNombres IS NULL OR pNombres = '') THEN
-        SELECT 'ERR_INGRESAR_NOMBRE' pMensaje;
+        SELECT 'ERR_INGRESAR_NOMBRE' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pApellidos IS NULL OR pApellidos = '') THEN
-        SELECT 'ERR_INGRESAR_APELLIDO' pMensaje;
+        SELECT 'ERR_INGRESAR_APELLIDO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pEstadoCivil NOT IN ('C', 'S', 'D')) THEN
-        SELECT 'ERR_INVALIDO_ESTADOCIVIL' pMensaje;
+        SELECT 'ERR_INVALIDO_ESTADOCIVIL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pTelefono IS NULL OR pTelefono = '') THEN
-        SELECT 'ERR_INGRESAR_TELEFONO' pMensaje;
+        SELECT 'ERR_INGRESAR_TELEFONO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pEmail IS NULL OR pEmail = '') THEN 
-        SELECT 'ERR_INGRESAR_EMAIL' pMensaje;
+        SELECT 'ERR_INGRESAR_EMAIL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT Email FROM Usuarios WHERE Email = pEmail AND IdUsuario != pIdUsuario) THEN
-        SELECT 'ERR_EXISTE_EMAIL' pMensaje;
+        SELECT 'ERR_EXISTE_EMAIL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pCantidadHijos IS NULL) THEN
-        SELECT 'ERR_INGRESAR_CANTIDADHIJOS' pMensaje;
+        SELECT 'ERR_INGRESAR_CANTIDADHIJOS' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (LENGTH(pUsuario) <> LENGTH(REPLACE(pUsuario,' ',''))) THEN
-        SELECT 'ERR_ESPACIO_USUARIO' pMensaje;
+        SELECT 'ERR_ESPACIO_USUARIO' Mensaje;
         LEAVE SALIR;
 	END IF;
 
     IF EXISTS(SELECT Usuario FROM Usuarios WHERE Usuario = pUsuario AND IdUsuario != pIdUsuario) THEN
-		SELECT 'ERR_EXISTE_USUARIO' pMensaje;
+		SELECT 'ERR_EXISTE_USUARIO' Mensaje;
 		LEAVE SALIR;
 	END IF;
 
-
     IF(pFechaNacimiento IS NULL OR pFechaNacimiento > NOW()) THEN
-        SELECT 'ERR_FECHANACIMIENTO_ANTERIOR' pMensaje;
+        SELECT 'ERR_FECHANACIMIENTO_ANTERIOR' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF(pFechaInicio IS NULL OR pFechaInicio > NOW()) THEN
-        SELECT 'ERR_FECHAINICIO_ANTERIOR' pMensaje;
-        LEAVE SALIR;
-    END IF;
-
-    IF(pFechaAlta IS NULL OR pFechaAlta > NOW()) THEN
-        SELECT 'ERR_FECHA_ANTERIOR' pMensaje;
+        SELECT 'ERR_FECHAINICIO_ANTERIOR' Mensaje;
         LEAVE SALIR;
     END IF;
 
     UPDATE  Usuarios 
-    SET IdUsuario = pIdUsario,
+    SET IdUsuario = pIdUsuario,
         IdRol = pIdRol,
         IdUbicacion = pIdUbicacion,
         IdTipoDocumento = pIdTipoDocumento,
@@ -131,7 +125,7 @@ SALIR:BEGIN
         Telefono = pTelefono,
         Email = pEmail,
         CantidadHijos = pCantidadHijos,
-        Usuarios = pUsuario,
+        Usuario = pUsuario,
         FechaNacimiento = pFechaNacimiento,
         FechaInicio = pFechaInicio
     WHERE IdUsuario = pIdUsuario;

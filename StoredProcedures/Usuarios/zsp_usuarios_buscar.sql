@@ -2,6 +2,7 @@ DROP PROCEDURE IF EXISTS `zsp_usuarios_buscar`;
 
 DELIMITER $$
 CREATE PROCEDURE `zsp_usuarios_buscar`(
+    pToken varchar(256),
     pNombresApellidos varchar(80),
     pUsuario varchar(40),
     pEmail varchar(120),
@@ -20,6 +21,7 @@ SALIR: BEGIN
 	*/
 
     DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pMensaje text;
 
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuarios_buscar', pIdUsuarioEjecuta, pMensaje);
 	IF pMensaje!='OK' THEN
@@ -50,14 +52,14 @@ SALIR: BEGIN
 	SELECT		u.*, Rol, Ubicacion,
 				IF(u.Estado = 'B','S','N') OpcionDarAlta, IF(u.Estado = 'A','S','N') OpcionDarBaja
 	FROM		Usuarios u
-	INNER JOIN	Roles USING (IdRol)
-    INNER JOIN	Ubicaciones USING (IdUbicacion)
+	INNER JOIN	Roles r USING (IdRol)
+    INNER JOIN	Ubicaciones u USING (IdUbicacion)
 	WHERE		IdRol IS NOT NULL AND 
 				(
-                    CONCAT(Apellidos,',',Nombres) LIKE CONCAT('%', pNombresApellidos, '%') OR
-                    Usuario LIKE CONCAT(pUsuario, '%') OR
-                    Email LIKE CONCAT(pEmail, '%') OR
-                    Documento LIKE CONCAT(pDocumento, '%') OR
+                    CONCAT(Apellidos,',',Nombres) LIKE CONCAT('%', pNombresApellidos, '%') AND
+                    Usuario LIKE CONCAT(pUsuario, '%') AND
+                    Email LIKE CONCAT(pEmail, '%') AND
+                    Documento LIKE CONCAT(pDocumento, '%') AND
                     Telefono LIKE CONCAT(pTelefono, '%')
 				) AND 
                 (IdRol = pIdRol OR pIdRol = 0) AND

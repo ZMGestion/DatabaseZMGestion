@@ -29,6 +29,11 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
+    IF(pPassword IS NULL OR pPassword = '') THEN
+        SELECT 'ERR_INGRESAR_PASSWORD' Mensaje;
+        LEAVE SALIR;
+    END IF;
+
     UPDATE  Usuarios 
     SET Password = pPassword
     WHERE IdUsuario = pIdUsuario;
