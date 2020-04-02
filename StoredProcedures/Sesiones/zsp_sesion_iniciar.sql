@@ -7,9 +7,9 @@ SALIR: BEGIN
 		Procedimiento que permite a un usuario iniciar sesion en ZMGestion.
         Devuelve 'OK'+Id o el mensaje de error en  Mensaje.
 	*/
-
-    DECLARE IdUsuario smallint;
+    DECLARE pIdUsuario smallint;
     DECLARE pTIEMPOINTENTOS, pMAXINTPASS, pIntentos int;
+    DECLARE pFechaUltIntento datetime;
 
     IF pToken IS NULL OR pToken = '' THEN
         SELECT 'ERR_TRANSACCION' Mensaje;
@@ -26,43 +26,49 @@ SALIR: BEGIN
     END IF;
 
     IF LOCATE('@', pCredencial) != 0 THEN
-        IF(NOT EXISTS (SELECT @pIdUsuario := `IdUsuario` FROM Usuarios WHERE Email = pCredencial)) THEN
+        IF(NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE Email = pCredencial)) THEN
             SELECT 'ERR_LOGIN_INCORRECTO' Mensaje;
             LEAVE SALIR;
+		ELSE
+			SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Email = pCredencial);
         END IF;
     ELSE
-        IF NOT EXISTS (SELECT @pIdUsuario := `IdUsuario` FROM Usuarios WHERE Usuario = pCredencial) THEN
+        IF NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE Usuario = pCredencial) THEN
             SELECT 'ERR_LOGIN_INCORRECTO' Mensaje;
             LEAVE SALIR;
+        ELSE
+			SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Usuario = pCredencial);
         END IF;
     END IF;
 
-    IF NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = @pIdUsuario AND Estado = 'A') THEN
+    IF NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'A') THEN
         SELECT 'ERR_LOGIN_BLOQUEADO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     START TRANSACTION;
-        SET pIntentos = (SELECT Intentos FROM Usuarios WHERE IdUsuario = @pIdUsuario);
+        SET pIntentos = (SELECT Intentos FROM Usuarios WHERE IdUsuario = pIdUsuario);
+        SET pFechaUltIntento = (SELECT FechaUltIntento FROM Usuarios WHERE IdUsuario = pIdUsuario);
 
-        IF EXISTS(SELECT IdUsuario FROM Usuarios WHERE IdUsuario = @pIdUsuario AND DATE_ADD(FechaUltIntento, INTERVAL pTIEMPOINTENTOS MINUTE) > NOW()) THEN
+        IF DATE_ADD(pFechaUltIntento, INTERVAL pTIEMPOINTENTOS MINUTE) < NOW() THEN
             SET pIntentos = 0;
+            SELECT pTIEMPOINTENTOS Mensaje;
         END IF;
 
-        IF NOT EXISTS (SELECT Estado FROM Usuarios WHERE `Password` = pPassword AND ESTADO = 'A' AND IdUsuario = @pIdUsuario) THEN
+        IF NOT EXISTS (SELECT Estado FROM Usuarios WHERE `Password` = pPass AND ESTADO = 'A' AND IdUsuario = pIdUsuario) THEN
             IF (pIntentos + 1) >= pMAXINTPASS THEN
                 UPDATE Usuarios
                 SET Intentos = (pIntentos + 1),
                     FechaUltIntento = NOW(),
                     Estado = 'B'
-                WHERE IdUsuario = @pIdUsuario;
+                WHERE IdUsuario = pIdUsuario;
                 COMMIT;
                 SELECT 'ERR_LOGIN_BLOQUEADO' Mensaje;
             ELSE
                 UPDATE Usuarios
                 SET Intentos = (pIntentos + 1),
                     FechaUltIntento = NOW()
-                WHERE IdUsuario = @pIdUsuario;
+                WHERE IdUsuario = pIdUsuario;
                 COMMIT;
                 SELECT 'ERR_LOGIN_INCORRECTO' Mensaje;
             END IF;
@@ -72,8 +78,8 @@ SALIR: BEGIN
             SET Token = pToken,
                 FechaUltIntento = NOW(),
                 Intentos = 0
-            WHERE IdUsuario = @pIdUsuario;
-            SELECT CONCAT('OK',@pIdUsuario) Mensaje;
+            WHERE IdUsuario = pIdUsuario;
+            SELECT CONCAT('OK',pIdUsuario) Mensaje;
         END IF;        
     COMMIT;
 
