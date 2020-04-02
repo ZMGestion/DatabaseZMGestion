@@ -1,7 +1,7 @@
 DROP PROCEDURE IF EXISTS `zsp_usuario_dame_por_token`;
 
 DELIMITER $$
-CREATE PROCEDURE `psp_dame_usuario_por_token`(pToken varchar(256))
+CREATE PROCEDURE `zsp_usuario_dame_por_token`(pToken varchar(256))
 
 BEGIN
 

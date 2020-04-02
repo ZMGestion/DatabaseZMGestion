@@ -70,3 +70,4 @@ SALIR: BEGIN
     SELECT 'OK' Mensaje;
 END $$
 DELIMITER ;
+

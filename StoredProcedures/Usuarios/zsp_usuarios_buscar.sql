@@ -12,7 +12,7 @@ CREATE PROCEDURE `zsp_usuarios_buscar`(
     pEstado char(1),
     pIdRol tinyint,
     pIdUbicacion tinyint)
-BEGIN
+SALIR: BEGIN
 	/*
 		Permite buscar los usuarios por una cadena, o bien, por sus nombres y apellidos, nombre de usuario, email, documento, telefono,
         estado civil (C:Casado - S:Soltero - D:Divorciado - T:Todos), estado (A:Activo - B:Baja - T:Todos), rol (0:Todos los roles),

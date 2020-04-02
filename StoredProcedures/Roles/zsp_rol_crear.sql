@@ -9,6 +9,7 @@ SALIR: BEGIN
 	*/
     DECLARE pIdUsuarioEjecuta smallint;
 	DECLARE pMensaje text;
+	DECLARE pIdRol smallint;
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN

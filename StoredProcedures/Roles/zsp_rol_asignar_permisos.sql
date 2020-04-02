@@ -70,3 +70,4 @@ SALIR: BEGIN
 	COMMIT;    
 END $$
 DELIMITER ;
+
