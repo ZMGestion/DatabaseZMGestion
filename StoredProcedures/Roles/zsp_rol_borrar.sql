@@ -1,6 +1,6 @@
 DROP PROCEDURE IF EXISTS `zsp_rol_borrar`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_rol_borrar`(pToken char(32), pIdRol tinyint)
+CREATE PROCEDURE `zsp_rol_borrar`(pToken varchar(256), pIdRol tinyint)
 
 SALIR: BEGIN
     /*

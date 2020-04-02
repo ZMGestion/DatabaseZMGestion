@@ -53,7 +53,7 @@ SALIR: BEGIN
 				IF(u.Estado = 'B','S','N') OpcionDarAlta, IF(u.Estado = 'A','S','N') OpcionDarBaja
 	FROM		Usuarios u
 	INNER JOIN	Roles r USING (IdRol)
-    INNER JOIN	Ubicaciones u USING (IdUbicacion)
+    INNER JOIN	Ubicaciones USING (IdUbicacion)
 	WHERE		IdRol IS NOT NULL AND 
 				(
                     CONCAT(Apellidos,',',Nombres) LIKE CONCAT('%', pNombresApellidos, '%') AND
