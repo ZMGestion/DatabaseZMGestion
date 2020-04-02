@@ -1,1 +1,1 @@
-cat StoredProcedures/Roles/*.sql StoredProcedures/Usuarios/*.sql StoredProcedures/Sesiones/*.sql> Script.sql
+cat Functions/*.sql StoredProcedures/Roles/*.sql StoredProcedures/Usuarios/*.sql StoredProcedures/Sesiones/*.sql> Script.sql

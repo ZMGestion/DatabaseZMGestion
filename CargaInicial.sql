@@ -30,6 +30,7 @@ INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedim
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (9, 'Dar de alta usuarios', 'Permite a un usuario dar de alta a otros usuarios que fueron dado de baja.', 'zsp_usuario_dar_alta');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (10, 'Restablecer pass', 'Permite a un usuario restablecer la contraseña de otro usuario. ', 'zsp_usuario_restablecer_pass');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (11, 'Modificar pass', 'Permite a un usuario cambiar su contraseña ingresando la contraseña actual.', 'zsp_usuario_modificar_pass');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (12, 'Cerrar sesion', 'Permite a un usuario cerrar la sesión de otro usuario.', 'zsp_sesion_cerrar');
 
 /* Carga inicial PermisosRol Administradores */
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 1);
@@ -43,6 +44,7 @@ INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 8);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 9);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 10);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 11);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 12);
 
 /* Carga inicial PermisosRol Vendedores */
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (2, 11);
