@@ -1,70 +1,73 @@
 --
 -- ER/Studio 8.0 SQL Code Generation
--- Company :      NL
+-- Company :      Bachs
 -- Project :      modeloRelacional.DM1
--- Author :       NL
+-- Author :       Bachs
 --
--- Date Created : Monday, March 30, 2020 20:08:29
+-- Date Created : Monday, May 04, 2020 00:30:17
 -- Target DBMS : MySQL 5.x
 --
 
+CREATE DATABASE IF NOT EXISTS 'ZMGestion';
+USE 'ZMGestion';
+
 SET FOREIGN_KEY_CHECKS = 0; 
 
-DROP TABLE IF EXISTS CategoriasProducto
+DROP TABLE CategoriasProducto
 ;
-DROP TABLE IF EXISTS Ciudades
+DROP TABLE Ciudades
 ;
-DROP TABLE IF EXISTS Clientes
+DROP TABLE Clientes
 ;
-DROP TABLE IF EXISTS Comprobantes
+DROP TABLE Comprobantes
 ;
-DROP TABLE IF EXISTS Domicilios
+DROP TABLE Domicilios
 ;
-DROP TABLE IF EXISTS Empresa
+DROP TABLE Empresa
 ;
-DROP TABLE IF EXISTS GruposProducto
+DROP TABLE GruposProducto
 ;
-DROP TABLE IF EXISTS LineasProducto
+DROP TABLE LineasProducto
 ;
-DROP TABLE IF EXISTS Lustres
+DROP TABLE Lustres
 ;
-DROP TABLE IF EXISTS Observaciones
+DROP TABLE Observaciones
 ;
-DROP TABLE IF EXISTS OrdenesProduccion
+DROP TABLE OrdenesProduccion
 ;
-DROP TABLE IF EXISTS Paises
+DROP TABLE Paises
 ;
-DROP TABLE IF EXISTS Permisos
+DROP TABLE Permisos
 ;
-DROP TABLE IF EXISTS PermisosRol
+DROP TABLE PermisosRol
 ;
-DROP TABLE IF EXISTS Precios
+DROP TABLE Precios
 ;
-DROP TABLE IF EXISTS Presupuestos
+DROP TABLE Presupuestos
 ;
-DROP TABLE IF EXISTS Productos
+DROP TABLE Productos
 ;
-DROP TABLE IF EXISTS ProductosFinales
+DROP TABLE ProductosFinales
 ;
-DROP TABLE IF EXISTS Provincias
+DROP TABLE Provincias
 ;
-DROP TABLE IF EXISTS Remitos
+DROP TABLE Remitos
 ;
-DROP TABLE IF EXISTS Roles
+DROP TABLE Roles
 ;
-DROP TABLE IF EXISTS Tareas
+DROP TABLE Tareas
 ;
-DROP TABLE IF EXISTS Telas
+DROP TABLE Telas
 ;
-DROP TABLE IF EXISTS TiposDocumento
+DROP TABLE TiposDocumento
 ;
-DROP TABLE IF EXISTS TiposProducto
+DROP TABLE TiposProducto
 ;
-DROP TABLE IF EXISTS Ubicaciones
+DROP TABLE Ubicaciones
 ;
-DROP TABLE IF EXISTS Usuarios
+DROP TABLE Usuarios
 ;
-DROP TABLE IF EXISTS Ventas
+DROP TABLE Ventas
 ;
 -- 
 -- TABLE: CategoriasProducto 
@@ -292,10 +295,11 @@ COMMENT='Tabla que almacena los permisos por rol.'
 --
 
 CREATE TABLE Precios(
-    IdPrecio     INT               AUTO_INCREMENT,
-    Precio       DECIMAL(10, 2)    NOT NULL,
-    FechaAlta    DATETIME          NOT NULL,
-    Estado       CHAR(1)           NOT NULL,
+    IdPrecio        INT               AUTO_INCREMENT,
+    Precio          DECIMAL(10, 2)    NOT NULL,
+    Tipo            CHAR(1)           NOT NULL,
+    IdReferencia    INT,
+    FechaAlta       DATETIME          NOT NULL,
     PRIMARY KEY (IdPrecio)
 )ENGINE=INNODB
 COMMENT='Tabla que almacena el historico de precios para un mismo producto.'
@@ -328,7 +332,6 @@ CREATE TABLE Productos(
     IdProducto             INT              AUTO_INCREMENT,
     IdCategoriaProducto    TINYINT          NOT NULL,
     IdGrupoProducto        TINYINT          NOT NULL,
-    IdPrecio               INT              NOT NULL,
     IdTipoProducto         CHAR(1)          NOT NULL,
     Producto               VARCHAR(80)      NOT NULL,
     LongitudTela           DECIMAL(3, 2)    NOT NULL,
@@ -434,7 +437,6 @@ COMMENT='Tabla que almacena las tareas asignadas a un usuario para una determina
 
 CREATE TABLE Telas(
     IdTela           SMALLINT        AUTO_INCREMENT,
-    IdPrecio         INT             NOT NULL,
     Tela             VARCHAR(60)     NOT NULL,
     FechaAlta        DATETIME        NOT NULL,
     FechaBaja        DATETIME,
@@ -742,12 +744,6 @@ CREATE INDEX Ref3032 ON Productos(IdCategoriaProducto)
 CREATE INDEX Ref3133 ON Productos(IdGrupoProducto)
 ;
 -- 
--- INDEX: Ref2237 
---
-
-CREATE INDEX Ref2237 ON Productos(IdPrecio)
-;
--- 
 -- INDEX: UI_IdProducto_IdTela_IdLustre 
 --
 
@@ -842,12 +838,6 @@ CREATE INDEX Ref278 ON Tareas(IdUsuarioRevisor)
 --
 
 CREATE UNIQUE INDEX UI_Tela ON Telas(Tela)
-;
--- 
--- INDEX: Ref2236 
---
-
-CREATE INDEX Ref2236 ON Telas(IdPrecio)
 ;
 -- 
 -- INDEX: UI_TipoDocumento 
@@ -1098,11 +1088,6 @@ ALTER TABLE Productos ADD CONSTRAINT RefGruposProducto33
     REFERENCES GruposProducto(IdGrupoProducto)
 ;
 
-ALTER TABLE Productos ADD CONSTRAINT RefPrecios37 
-    FOREIGN KEY (IdPrecio)
-    REFERENCES Precios(IdPrecio)
-;
-
 
 -- 
 -- TABLE: ProductosFinales 
@@ -1180,16 +1165,6 @@ ALTER TABLE Tareas ADD CONSTRAINT RefUsuarios78
 
 
 -- 
--- TABLE: Telas 
---
-
-ALTER TABLE Telas ADD CONSTRAINT RefPrecios36 
-    FOREIGN KEY (IdPrecio)
-    REFERENCES Precios(IdPrecio)
-;
-
-
--- 
 -- TABLE: Ubicaciones 
 --
 
@@ -1243,4 +1218,4 @@ ALTER TABLE Ventas ADD CONSTRAINT RefUsuarios48
     REFERENCES Usuarios(IdUsuario)
 ;
 
-SET FOREIGN_KEY_CHECKS = 1;
+SET FOREIGN_KEY_CHECKS = 1; 
