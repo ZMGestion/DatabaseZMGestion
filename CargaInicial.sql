@@ -92,3 +92,7 @@ INSERT INTO Domicilios VALUES (3, 2, 2, 'AR', NULL,  'España 109', '4400', now(
 INSERT INTO Ubicaciones VALUES (1,1, 'Casa Central Tucumán', now(), NULL, '', 'A');
 INSERT INTO Ubicaciones VALUES (2,2, 'Sucursal Muñecas', now(), NULL, '', 'A');
 INSERT INTO Ubicaciones VALUES (3,3, 'Sucursal Salta', now(), NULL, '', 'A');
+
+
+/* Carga inicial Usuarios */
+INSERT INTO Usuarios VALUES (1,1,1,1,'','Adam el super admin', '','C', '+54-(381)4321719', 'zimmermanmueblesgestion@gmail.com',2,'adam','Adam123','TOKEN', NULL, 0, now(), now(), now(), NULL, 'A')
