@@ -19,7 +19,7 @@ SALIR: BEGIN
 
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+		SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL, 'N') pOut;
         ROLLBACK;
 	END;
 
@@ -28,27 +28,20 @@ SALIR: BEGIN
 	SET pToken = pUsuarioEjecuta ->> "$.Token";
 	SET pRol = pRoles ->> "$.Rol";
 	SET pDescripcion = pRoles ->> "$.Descripcion";
-
-
-	BEGIN
-		GET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE, @errno = MYSQL_ERRNO, @text = MESSAGE_TEXT;
-		SELECT f_generarRespuesta(CONCAT("ERROR ", COALESCE(@errno, ''), " (", COALESCE(@sqlstate, ''), "): ", COALESCE(@text, '')), NULL) pOut;
-	END;
-
     
 	CALL zsp_usuario_tiene_permiso(pToken, 'zsp_rol_crear', pIdUsuarioEjecuta, pMensaje);
 	IF pMensaje!='OK' THEN
-		SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+		SELECT f_generarRespuesta(pMensaje, NULL, 'N') pOut;
 		LEAVE SALIR;
 	END IF;
     
 	IF (pRol IS NULL OR pRol = '') THEN
-		SELECT f_generarRespuesta('ERROR_INGRESAR_NOMBREROL', NULL) pOut;
+		SELECT f_generarRespuesta('ERROR_INGRESAR_NOMBREROL', NULL, 'N') pOut;
         LEAVE SALIR;
 	END IF;
     
     IF EXISTS(SELECT Rol FROM Roles WHERE Rol = pRol) THEN
-		SELECT f_generarRespuesta('ERROR_EXISTE_NOMBREROL', NULL) pOut;
+		SELECT f_generarRespuesta('ERROR_EXISTE_NOMBREROL', NULL, 'N') pOut;
 		LEAVE SALIR;
 	END IF;	
 
@@ -57,7 +50,7 @@ SALIR: BEGIN
         INSERT INTO Roles VALUES (DEFAULT, pRol, NOW(), NULLIF(pDescripcion,''));
 		SET pIdRol = (SELECT IdRol FROM Roles WHERE Rol = pRol);
 		SET pRespuesta = (SELECT (CAST(
-			CONCAT(COALESCE(
+			COALESCE(
 					JSON_OBJECT(
 						'IdRol', IdRol, 
 						'Rol', Rol,
@@ -65,8 +58,8 @@ SALIR: BEGIN
 						'Descripcion', Descripcion
 						)
 					,'')
-			)AS JSON)) FROM Roles WHERE Rol = pRol);
-		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta)) AS pOut;
+			AS JSON)) FROM Roles WHERE Rol = pRol);
+		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta), 'N') AS pOut;
 	COMMIT;
 END $$
 DELIMITER ;

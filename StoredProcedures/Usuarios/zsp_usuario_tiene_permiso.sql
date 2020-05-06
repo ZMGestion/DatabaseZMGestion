@@ -18,7 +18,7 @@ BEGIN
             AND p.Procedimiento = pProcedimiento;
     
     IF pIdUsuario IS NULL THEN
-        SET pMensaje = 'ERR_SIN_PERMISOS';
+        SET pMensaje = 'ERROR_SIN_PERMISOS';
     ELSE
         SET pMensaje = 'OK';
     END IF;
