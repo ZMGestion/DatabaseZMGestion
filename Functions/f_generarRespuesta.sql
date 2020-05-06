@@ -1,8 +1,11 @@
 DROP FUNCTION IF EXISTS `f_generarRespuesta`;
 DELIMITER $$
-CREATE FUNCTION `f_generarRespuesta`(pCodigoError varchar(255), pRespuesta JSON) RETURNS JSON
+CREATE FUNCTION `f_generarRespuesta`(pCodigoError varchar(255), pRespuesta JSON, pEsLista CHAR(1)) RETURNS JSON
     DETERMINISTIC
 BEGIN
-	RETURN JSON_OBJECT("error", pCodigoError, "respuesta", pRespuesta);
+    IF pEsLista = 'S' THEN
+	    RETURN JSON_OBJECT("error", pCodigoError, "respuesta", CONCAT('[',pRespuesta,']'));
+    ELSE
+        RETURN JSON_OBJECT("error", pCodigoError, "respuesta", pRespuesta);
 END $$
 DELIMITER ;

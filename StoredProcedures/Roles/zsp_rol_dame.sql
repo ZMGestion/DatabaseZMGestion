@@ -19,7 +19,8 @@ SALIR: BEGIN
     SET pRoles = pIn ->> '$.Roles';
     SET pIdRol = pRoles ->> '$.IdRol';
 
-	SET pRespuesta = (SELECT 	CAST(CONCAT(
+	SET pRespuesta = (
+        SELECT CAST(
 				COALESCE(
 					JSON_OBJECT(
 						'IdRol', IdRol, 
@@ -27,11 +28,12 @@ SALIR: BEGIN
 						'FechaAlta', FechaAlta,
 						'Descripcion', Descripcion
 					)
-				,'')
-			)AS JSON) AS pOut
-    FROM	Roles
-    WHERE	IdRol = pIdRol);
-    SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta)) pOut;
+				,'') AS JSON)
+        FROM	Roles
+        WHERE	IdRol = pIdRol
+    );
+
+    SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta), 'N') pOut;
 
 END $$
 DELIMITER ;
