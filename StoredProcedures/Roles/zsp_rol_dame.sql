@@ -33,7 +33,7 @@ SALIR: BEGIN
         WHERE	IdRol = pIdRol
     );
 
-    SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta), 'N') pOut;
+    SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta)) pOut;
 
 END $$
 DELIMITER ;
