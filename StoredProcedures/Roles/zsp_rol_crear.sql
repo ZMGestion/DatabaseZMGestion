@@ -19,7 +19,7 @@ SALIR: BEGIN
 
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL, 'N') pOut;
+		SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
 	END;
 
@@ -31,17 +31,17 @@ SALIR: BEGIN
     
 	CALL zsp_usuario_tiene_permiso(pToken, 'zsp_rol_crear', pIdUsuarioEjecuta, pMensaje);
 	IF pMensaje!='OK' THEN
-		SELECT f_generarRespuesta(pMensaje, NULL, 'N') pOut;
+		SELECT f_generarRespuesta(pMensaje, NULL) pOut;
 		LEAVE SALIR;
 	END IF;
     
 	IF (pRol IS NULL OR pRol = '') THEN
-		SELECT f_generarRespuesta('ERROR_INGRESAR_NOMBREROL', NULL, 'N') pOut;
+		SELECT f_generarRespuesta('ERROR_INGRESAR_NOMBREROL', NULL) pOut;
         LEAVE SALIR;
 	END IF;
     
     IF EXISTS(SELECT Rol FROM Roles WHERE Rol = pRol) THEN
-		SELECT f_generarRespuesta('ERROR_EXISTE_NOMBREROL', NULL, 'N') pOut;
+		SELECT f_generarRespuesta('ERROR_EXISTE_NOMBREROL', NULL) pOut;
 		LEAVE SALIR;
 	END IF;	
 
@@ -59,7 +59,7 @@ SALIR: BEGIN
 						)
 					,'')
 			AS JSON)) FROM Roles WHERE Rol = pRol);
-		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta), 'N') AS pOut;
+		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta)) AS pOut;
 	COMMIT;
 END $$
 DELIMITER ;
