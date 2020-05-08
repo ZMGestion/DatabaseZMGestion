@@ -1,6 +1,6 @@
 DROP PROCEDURE IF EXISTS `zsp_rol_asignar_permisos`;
 DELIMITER $$
-CREATE  PROCEDURE `zsp_rol_asignar_permisos`(pToken varchar(256), pIdRol tinyint, pPermisos varchar(5000))
+CREATE  PROCEDURE `zsp_rol_asignar_permisos`(pIn JSON)
 
 SALIR: BEGIN
 	/*
@@ -8,25 +8,40 @@ SALIR: BEGIN
 		Cambia el token de los usuarios del rol así deban reiniciar sesión y retomar permisos.
 		Devuelve OK o el mensaje de error en Mensaje.
 	*/	
-    DECLARE pIndice, pIdPermiso, pIdUsuarioEjecuta smallint;
+    DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pNumero varchar(11);
 	DECLARE pMensaje text;
+	DECLARE pRoles, pPermisos, pUsuariosEjecuta JSON;
+	DECLARE pIdRol int;
+	DECLARE pToken varchar(256);
+
+	/*Para el While*/
+	DECLARE i INT DEFAULT 0;
+	DECLARE pPermiso JSON;
+	DECLARE pIdPermiso smallint;
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
 		SHOW ERRORS;
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT f_generarRespuesta('ERROR_TRANSACCION', NULL) pOut;
         ROLLBACK;
 	END;
+
+	SET pRoles = pIn ->> '$.Roles';
+	SET pUsuariosEjecuta = pIn ->> '$.UsuariosEjecuta';
+	SET pPermisos = pIn ->> '$.Permisos';
+
+    SET pIdRol = pRoles ->> '$.IdRol';
+    SET pToken = pUsuariosEjecuta ->> '$.Token';
 	
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_rol_asignar_permisos', pIdUsuarioEjecuta, pMensaje);
 	IF pMensaje != 'OK' THEN
-		SELECT pMensaje Mensaje;
+		SELECT f_generarRespuesta(pMensaje, NULL) pOut;
 		LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS(SELECT IdRol FROM Roles WHERE IdRol = pIdRol)THEN
-		SELECT 'ERR_NOEXISTE_ROL' Mensaje;
+		SELECT f_generarRespuesta('ERROR_NOEXISTE_ROL', NULL) pOut;
         LEAVE SALIR;
     END IF;
     
@@ -36,22 +51,18 @@ SALIR: BEGIN
         SELECT * FROM PermisosRol WHERE IdRol = pIdRol;
 		
         DELETE FROM PermisosRol WHERE IdRol = pIdRol;
-        SET pIndice = 0;
-        
-        loop_1: LOOP
-			SET pIndice = pIndice + 1;
-            SET pNumero = f_split(pPermisos, ',', pIndice);
-            IF pNumero = '' THEN
-				LEAVE loop_1;
-			END IF;
-            SET pIdPermiso = pNumero;
-            IF NOT EXISTS(SELECT IdPermiso FROM Permisos WHERE IdPermiso = pIdPermiso)THEN
-				SELECT 'ERR_NOEXISTE_PERMISO_LISTA' Mensaje;
+
+		WHILE i < JSON_LENGTH(pPermisos) DO
+			SELECT JSON_EXTRACT(pPermisos,CONCAT('$[',i,']')) INTO pPermiso;
+			SET pIdPermiso = pPermiso ->> '$.IdPermiso';
+			IF NOT EXISTS(SELECT IdPermiso FROM Permisos WHERE IdPermiso = pIdPermiso)THEN
+				SELECT f_generarRespuesta('ERROR_NOEXISTE_PERMISO_LISTA', NULL) pOut;
                 ROLLBACK;
                 LEAVE SALIR;
             END IF;
             INSERT INTO PermisosRol VALUES(pIdPermiso, pIdRol);
-		END LOOP loop_1;
+			SELECT i + 1 INTO i;
+		END WHILE;
 
         IF EXISTS(SELECT IdPermiso
 			FROM
@@ -65,7 +76,7 @@ SALIR: BEGIN
 			HAVING COUNT(IdPermiso) = 1) THEN /*Si existen cambios, es decir existe un nuevo tipo de permiso respecto a la tabla original (tmp_permisosrol) => Reseteamos token.*/
                 UPDATE Usuarios SET Token = md5(CONCAT(CONVERT(IdUsuario,char(10)),UNIX_TIMESTAMP())) WHERE IdRol = pIdRol;
 		END IF;
-        SELECT 'OK' Mensaje;
+		SELECT f_generarRespuesta(NULL, NULL) pOut;
         DROP TEMPORARY TABLE IF EXISTS tmp_permisosrol;
 	COMMIT;    
 END $$

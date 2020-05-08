@@ -13,7 +13,7 @@ SALIR:BEGIN
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -25,18 +25,18 @@ SALIR:BEGIN
     END IF;
 
     IF NOT EXISTS(SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuarioEjecuta AND Password = pPasswordActual) THEN
-        SELECT 'ERR_PASSWORD_INCORRECTA' Mensaje;
+        SELECT 'ERROR_PASSWORD_INCORRECTA' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pPasswordActual = pPasswordNueva) THEN
-        SELECT 'ERR_PASSOWRDS_IGUALES' Mensaje;
+        SELECT 'ERROR_PASSOWRDS_IGUALES' Mensaje;
         LEAVE SALIR;
     END IF;
 
 
     IF(pPasswordNueva IS NULL OR pPasswordNueva = '') THEN
-        SELECT 'ERR_INGRESAR_PASSWORD' Mensaje;
+        SELECT 'ERROR_INGRESAR_PASSWORD' Mensaje;
         LEAVE SALIR;
     END IF;
     

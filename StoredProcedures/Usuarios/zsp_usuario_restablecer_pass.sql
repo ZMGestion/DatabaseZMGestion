@@ -13,7 +13,7 @@ SALIR:BEGIN
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -25,12 +25,12 @@ SALIR:BEGIN
     END IF;
 
     IF (pIdUsuario IS NULL OR NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario)) THEN
-        SELECT 'ERR_NOEXISTE_USUARIO' Mensaje;
+        SELECT 'ERROR_NOEXISTE_USUARIO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF(pPassword IS NULL OR pPassword = '') THEN
-        SELECT 'ERR_INGRESAR_PASSWORD' Mensaje;
+        SELECT 'ERROR_INGRESAR_PASSWORD' Mensaje;
         LEAVE SALIR;
     END IF;
 
