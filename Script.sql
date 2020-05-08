@@ -30,7 +30,7 @@ SALIR: BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
 		SHOW ERRORS;
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 	
@@ -41,7 +41,7 @@ SALIR: BEGIN
 	END IF;
 
     IF NOT EXISTS(SELECT IdRol FROM Roles WHERE IdRol = pIdRol)THEN
-		SELECT 'ERR_NOEXISTE_ROL' Mensaje;
+		SELECT 'ERROR_NOEXISTE_ROL' Mensaje;
         LEAVE SALIR;
     END IF;
     
@@ -61,7 +61,7 @@ SALIR: BEGIN
 			END IF;
             SET pIdPermiso = pNumero;
             IF NOT EXISTS(SELECT IdPermiso FROM Permisos WHERE IdPermiso = pIdPermiso)THEN
-				SELECT 'ERR_NOEXISTE_PERMISO_LISTA' Mensaje;
+				SELECT 'ERROR_NOEXISTE_PERMISO_LISTA' Mensaje;
                 ROLLBACK;
                 LEAVE SALIR;
             END IF;
@@ -100,7 +100,7 @@ SALIR: BEGIN
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -111,17 +111,17 @@ SALIR: BEGIN
     END IF;
     
     IF pIdRol IS NULL THEN
-		SELECT 'ERR_INDICAR_ROL' Mensaje;
+		SELECT 'ERROR_INDICAR_ROL' Mensaje;
         LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS(SELECT IdRol FROM Roles WHERE IdRol = pIdRol) THEN
-        SELECT 'ERR_NOEXISTE_ROL' Mensaje;
+        SELECT 'ERROR_NOEXISTE_ROL' Mensaje;
         LEAVE SALIR;
     END IF;
     
 	IF EXISTS(SELECT IdRol FROM Usuarios WHERE IdRol = pIdRol) THEN
-		SELECT 'ERR_BORRAR_ROL_USUARIO' Mensaje;
+		SELECT 'ERROR_BORRAR_ROL_USUARIO' Mensaje;
 		LEAVE SALIR;
 	END IF;
 	
@@ -150,7 +150,7 @@ SALIR: BEGIN
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
     
@@ -161,12 +161,12 @@ SALIR: BEGIN
 	END IF;
     
 	IF (pRol IS NULL OR pRol = '') THEN
-        SELECT 'ERR_INGRESAR_NOMBREROL' Mensaje;
+        SELECT 'ERROR_INGRESAR_NOMBREROL' Mensaje;
         LEAVE SALIR;
 	END IF;
     
     IF EXISTS(SELECT Rol FROM Roles WHERE Rol = pRol) THEN
-		SELECT 'ERR_EXISTE_NOMBREROL' Mensaje;
+		SELECT 'ERROR_EXISTE_NOMBREROL' Mensaje;
 		LEAVE SALIR;
 	END IF;	
 
@@ -247,7 +247,7 @@ SALIR: BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
 		SHOW ERRORS;
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -258,42 +258,42 @@ SALIR: BEGIN
     END IF;
 
 	IF pIdUsuario = 1 THEN
-		SELECT 'ERR_BORRAR_USUARIO_ADAM' Mensaje;
+		SELECT 'ERROR_BORRAR_USUARIO_ADAM' Mensaje;
 		LEAVE SALIR;
 	END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Presupuestos p USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_PRESUPUESTO' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_PRESUPUESTO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Ventas v USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_VENTA' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_VENTA' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN OrdenesProduccion op USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_OP' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_OP' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Comprobantes c USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_COMPROBANTE' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_COMPROBANTE' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Remitos r USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_REMITO' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_REMITO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Tareas t ON u.IdUsuario = t.IdUsuarioFabricante WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_TAREA_F' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_TAREA_F' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Tareas t ON u.IdUsuario = t.IdUsuarioRevisor WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_TAREA_R' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_TAREA_R' Mensaje;
         LEAVE SALIR;
     END IF;
     
@@ -321,7 +321,7 @@ SALIR:BEGIN
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -332,87 +332,87 @@ SALIR:BEGIN
     END IF;
 
     IF (pIdRol IS NULL OR NOT EXISTS (SELECT IdRol FROM Roles WHERE IdRol = pIdRol)) THEN
-        SELECT 'ERR_NOEXISTE_ROL' Mensaje;
+        SELECT 'ERROR_NOEXISTE_ROL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdUbicacion IS NULL OR NOT EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion)) THEN
-        SELECT 'ERR_NOEXISTE_UBICACION' Mensaje;
+        SELECT 'ERROR_NOEXISTE_UBICACION' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdTipoDocumento IS NULL OR NOT EXISTS (SELECT IdTipoDocumento FROM TiposDocumento WHERE IdTipoDocumento = pIdTipoDocumento)) THEN
-        SELECT 'ERR_NOEXISTE_TIPODOC' Mensaje;
+        SELECT 'ERROR_NOEXISTE_TIPODOC' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pDocumento IS NULL OR pDocumento = '') THEN
-        SELECT 'ERR_INGRESAR_DOCUMENTO' Mensaje;
+        SELECT 'ERROR_INGRESAR_DOCUMENTO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdTipoDocumento = pIdTipoDocumento AND Documento = pDocumento) THEN
-        SELECT 'ERR_EXISTE_USUARIO_TIPODOC_DOC' Mensaje;
+        SELECT 'ERROR_EXISTE_USUARIO_TIPODOC_DOC' Mensaje;
         LEAVE SALIR;
     END IF;
     
     IF (pNombres IS NULL OR pNombres = '') THEN
-        SELECT 'ERR_INGRESAR_NOMBRE' Mensaje;
+        SELECT 'ERROR_INGRESAR_NOMBRE' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pApellidos IS NULL OR pApellidos = '') THEN
-        SELECT 'ERR_INGRESAR_APELLIDO' Mensaje;
+        SELECT 'ERROR_INGRESAR_APELLIDO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pEstadoCivil NOT IN ('C', 'S', 'D')) THEN
-        SELECT 'ERR_INVALIDO_ESTADOCIVIL' Mensaje;
+        SELECT 'ERROR_INVALIDO_ESTADOCIVIL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pTelefono IS NULL OR pTelefono = '') THEN
-        SELECT 'ERR_INGRESAR_TELEFONO' Mensaje;
+        SELECT 'ERROR_INGRESAR_TELEFONO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pEmail IS NULL OR pEmail = '') THEN 
-        SELECT 'ERR_INGRESAR_EMAIL' Mensaje;
+        SELECT 'ERROR_INGRESAR_EMAIL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT Email FROM Usuarios WHERE Email = pEmail) THEN
-        SELECT 'ERR_EXISTE_EMAIL' Mensaje;
+        SELECT 'ERROR_EXISTE_EMAIL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pCantidadHijos IS NULL) THEN
-        SELECT 'ERR_INGRESAR_CANTIDADHIJOS' Mensaje;
+        SELECT 'ERROR_INGRESAR_CANTIDADHIJOS' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (LENGTH(pUsuario) <> LENGTH(REPLACE(pUsuario,' ',''))) THEN
-        SELECT 'ERR_ESPACIO_USUARIO' Mensaje;
+        SELECT 'ERROR_ESPACIO_USUARIO' Mensaje;
         LEAVE SALIR;
 	END IF;
 
     IF EXISTS(SELECT Usuario FROM Usuarios WHERE Usuario = pUsuario) THEN
-		SELECT 'ERR_EXISTE_USUARIO' Mensaje;
+		SELECT 'ERROR_EXISTE_USUARIO' Mensaje;
 		LEAVE SALIR;
 	END IF;
 
     IF(pPassword IS NULL OR pPassword = '') THEN
-        SELECT 'ERR_INGRESAR_PASSWORD' Mensaje;
+        SELECT 'ERROR_INGRESAR_PASSWORD' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF(pFechaNacimiento IS NULL OR pFechaNacimiento > NOW()) THEN
-        SELECT 'ERR_FECHANACIMIENTO_ANTERIOR' Mensaje;
+        SELECT 'ERROR_FECHANACIMIENTO_ANTERIOR' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF(pFechaInicio IS NULL OR pFechaInicio > NOW()) THEN
-        SELECT 'ERR_FECHAINICIO_ANTERIOR' Mensaje;
+        SELECT 'ERROR_FECHAINICIO_ANTERIOR' Mensaje;
         LEAVE SALIR;
     END IF;
 
@@ -471,7 +471,7 @@ SALIR: BEGIN
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -482,12 +482,12 @@ SALIR: BEGIN
     END IF;
 
     IF pIdUsuario IS NULL THEN
-		SELECT 'ERR_INDICAR_USUARIO' Mensaje;
+		SELECT 'ERROR_INDICAR_USUARIO' Mensaje;
         LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'B') THEN
-		SELECT 'ERR_USUARIO_ESTA_ALTA' Mensaje;
+		SELECT 'ERROR_USUARIO_ESTA_ALTA' Mensaje;
         LEAVE SALIR;
 	END IF;
 
@@ -525,17 +525,17 @@ SALIR: BEGIN
     END IF;
     
     IF pIdUsuario IS NULL THEN
-		SELECT 'ERR_INDICAR_USUARIO' pMensaje;
+		SELECT 'ERROR_INDICAR_USUARIO' pMensaje;
         LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS (SELECT IdUsuario From Usuarios WHERE IdUsuario = pIdUsuario) THEN
-		SELECT 'ERR_NOEXISTE_USUARIO' pMensaje;
+		SELECT 'ERROR_NOEXISTE_USUARIO' pMensaje;
         LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'A') THEN
-		SELECT 'ERR_USUARIO_ESTA_BAJA' pMensaje;
+		SELECT 'ERROR_USUARIO_ESTA_BAJA' pMensaje;
         LEAVE SALIR;
 	END IF;
 		
@@ -561,7 +561,7 @@ SALIR:BEGIN
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -573,18 +573,18 @@ SALIR:BEGIN
     END IF;
 
     IF NOT EXISTS(SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuarioEjecuta AND Password = pPasswordActual) THEN
-        SELECT 'ERR_PASSWORD_INCORRECTA' Mensaje;
+        SELECT 'ERROR_PASSWORD_INCORRECTA' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pPasswordActual = pPasswordNueva) THEN
-        SELECT 'ERR_PASSOWRDS_IGUALES' Mensaje;
+        SELECT 'ERROR_PASSOWRDS_IGUALES' Mensaje;
         LEAVE SALIR;
     END IF;
 
 
     IF(pPasswordNueva IS NULL OR pPasswordNueva = '') THEN
-        SELECT 'ERR_INGRESAR_PASSWORD' Mensaje;
+        SELECT 'ERROR_INGRESAR_PASSWORD' Mensaje;
         LEAVE SALIR;
     END IF;
     
@@ -616,7 +616,7 @@ SALIR:BEGIN
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -627,87 +627,87 @@ SALIR:BEGIN
     END IF;
 
     IF (pIdUsuario IS NULL OR NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario)) THEN
-        SELECT 'ERR_NOEXISTE_USUARIO' Mensaje;
+        SELECT 'ERROR_NOEXISTE_USUARIO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdRol IS NULL OR NOT EXISTS (SELECT IdRol FROM Roles WHERE IdRol = pIdRol)) THEN
-        SELECT 'ERR_NOEXISTE_ROL' Mensaje;
+        SELECT 'ERROR_NOEXISTE_ROL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdUbicacion IS NULL OR NOT EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion)) THEN
-        SELECT 'ERR_NOEXISTE_UBICACION' Mensaje;
+        SELECT 'ERROR_NOEXISTE_UBICACION' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pIdTipoDocumento IS NULL OR NOT EXISTS (SELECT IdTipoDocumento FROM TiposDocumento WHERE IdTipoDocumento = pIdTipoDocumento)) THEN
-        SELECT 'ERR_NOEXISTE_TIPODOC' Mensaje;
+        SELECT 'ERROR_NOEXISTE_TIPODOC' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pDocumento IS NULL OR pDocumento = '') THEN
-        SELECT 'ERR_INGRESAR_DOCUMENTO' Mensaje;
+        SELECT 'ERROR_INGRESAR_DOCUMENTO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdTipoDocumento = pIdTipoDocumento AND Documento = pDocumento AND IdUsuario != pIdUsuario) THEN
-        SELECT 'ERR_EXISTE_USUARIO_TIPODOC_DOC' Mensaje;
+        SELECT 'ERROR_EXISTE_USUARIO_TIPODOC_DOC' Mensaje;
         LEAVE SALIR;
     END IF;
     
     IF (pNombres IS NULL OR pNombres = '') THEN
-        SELECT 'ERR_INGRESAR_NOMBRE' Mensaje;
+        SELECT 'ERROR_INGRESAR_NOMBRE' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pApellidos IS NULL OR pApellidos = '') THEN
-        SELECT 'ERR_INGRESAR_APELLIDO' Mensaje;
+        SELECT 'ERROR_INGRESAR_APELLIDO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pEstadoCivil NOT IN ('C', 'S', 'D')) THEN
-        SELECT 'ERR_INVALIDO_ESTADOCIVIL' Mensaje;
+        SELECT 'ERROR_INVALIDO_ESTADOCIVIL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pTelefono IS NULL OR pTelefono = '') THEN
-        SELECT 'ERR_INGRESAR_TELEFONO' Mensaje;
+        SELECT 'ERROR_INGRESAR_TELEFONO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pEmail IS NULL OR pEmail = '') THEN 
-        SELECT 'ERR_INGRESAR_EMAIL' Mensaje;
+        SELECT 'ERROR_INGRESAR_EMAIL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT Email FROM Usuarios WHERE Email = pEmail AND IdUsuario != pIdUsuario) THEN
-        SELECT 'ERR_EXISTE_EMAIL' Mensaje;
+        SELECT 'ERROR_EXISTE_EMAIL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (pCantidadHijos IS NULL) THEN
-        SELECT 'ERR_INGRESAR_CANTIDADHIJOS' Mensaje;
+        SELECT 'ERROR_INGRESAR_CANTIDADHIJOS' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF (LENGTH(pUsuario) <> LENGTH(REPLACE(pUsuario,' ',''))) THEN
-        SELECT 'ERR_ESPACIO_USUARIO' Mensaje;
+        SELECT 'ERROR_ESPACIO_USUARIO' Mensaje;
         LEAVE SALIR;
 	END IF;
 
     IF EXISTS(SELECT Usuario FROM Usuarios WHERE Usuario = pUsuario AND IdUsuario != pIdUsuario) THEN
-		SELECT 'ERR_EXISTE_USUARIO' Mensaje;
+		SELECT 'ERROR_EXISTE_USUARIO' Mensaje;
 		LEAVE SALIR;
 	END IF;
 
     IF(pFechaNacimiento IS NULL OR pFechaNacimiento > NOW()) THEN
-        SELECT 'ERR_FECHANACIMIENTO_ANTERIOR' Mensaje;
+        SELECT 'ERROR_FECHANACIMIENTO_ANTERIOR' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF(pFechaInicio IS NULL OR pFechaInicio > NOW()) THEN
-        SELECT 'ERR_FECHAINICIO_ANTERIOR' Mensaje;
+        SELECT 'ERROR_FECHAINICIO_ANTERIOR' Mensaje;
         LEAVE SALIR;
     END IF;
 
@@ -748,7 +748,7 @@ SALIR:BEGIN
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -760,12 +760,12 @@ SALIR:BEGIN
     END IF;
 
     IF (pIdUsuario IS NULL OR NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario)) THEN
-        SELECT 'ERR_NOEXISTE_USUARIO' Mensaje;
+        SELECT 'ERROR_NOEXISTE_USUARIO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF(pPassword IS NULL OR pPassword = '') THEN
-        SELECT 'ERR_INGRESAR_PASSWORD' Mensaje;
+        SELECT 'ERROR_INGRESAR_PASSWORD' Mensaje;
         LEAVE SALIR;
     END IF;
 
@@ -871,7 +871,7 @@ BEGIN
             AND p.Procedimiento = pProcedimiento;
     
     IF pIdUsuario IS NULL THEN
-        SET pMensaje = 'ERR_SIN_PERMISOS';
+        SET pMensaje = 'ERROR_SIN_PERMISOS';
     ELSE
         SET pMensaje = 'OK';
     END IF;
@@ -892,7 +892,7 @@ SALIR: BEGIN
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -903,12 +903,12 @@ SALIR: BEGIN
     END IF;
     
     IF pIdUsuario IS NULL THEN
-		SELECT 'ERR_INDICAR_USUARIO' Mensaje;
+		SELECT 'ERROR_INDICAR_USUARIO' Mensaje;
         LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS(SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_NOEXISTE_USUARIO' Mensaje;
+        SELECT 'ERROR_NOEXISTE_USUARIO' Mensaje;
         LEAVE SALIR;
     END IF;
 	
@@ -937,7 +937,7 @@ SALIR: BEGIN
     DECLARE pFechaUltIntento datetime;
 
     IF pToken IS NULL OR pToken = '' THEN
-        SELECT 'ERR_TRANSACCION' Mensaje;
+        SELECT 'ERROR_TRANSACCION' Mensaje;
         LEAVE SALIR;
     END IF;
 
@@ -946,20 +946,20 @@ SALIR: BEGIN
 
     
     IF pCredencial IS NULL OR pCredencial = '' THEN
-        SELECT 'ERR_INGRESE_USUARIOEMAIL' Mensaje;
+        SELECT 'ERROR_INGRESE_USUARIOEMAIL' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF LOCATE('@', pCredencial) != 0 THEN
         IF(NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE Email = pCredencial)) THEN
-            SELECT 'ERR_LOGIN_INCORRECTO' Mensaje;
+            SELECT 'ERROR_LOGIN_INCORRECTO' Mensaje;
             LEAVE SALIR;
 		ELSE
 			SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Email = pCredencial);
         END IF;
     ELSE
         IF NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE Usuario = pCredencial) THEN
-            SELECT 'ERR_LOGIN_INCORRECTO' Mensaje;
+            SELECT 'ERROR_LOGIN_INCORRECTO' Mensaje;
             LEAVE SALIR;
         ELSE
 			SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Usuario = pCredencial);
@@ -967,7 +967,7 @@ SALIR: BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'A') THEN
-        SELECT 'ERR_LOGIN_BLOQUEADO' Mensaje;
+        SELECT 'ERROR_LOGIN_BLOQUEADO' Mensaje;
         LEAVE SALIR;
     END IF;
 
@@ -988,14 +988,14 @@ SALIR: BEGIN
                     Estado = 'B'
                 WHERE IdUsuario = pIdUsuario;
                 COMMIT;
-                SELECT 'ERR_LOGIN_BLOQUEADO' Mensaje;
+                SELECT 'ERROR_LOGIN_BLOQUEADO' Mensaje;
             ELSE
                 UPDATE Usuarios
                 SET Intentos = (pIntentos + 1),
                     FechaUltIntento = NOW()
                 WHERE IdUsuario = pIdUsuario;
                 COMMIT;
-                SELECT 'ERR_LOGIN_INCORRECTO' Mensaje;
+                SELECT 'ERROR_LOGIN_INCORRECTO' Mensaje;
             END IF;
             LEAVE SALIR;
         ELSE

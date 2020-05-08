@@ -16,7 +16,7 @@ SALIR: BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
 		SHOW ERRORS;
-		SELECT 'ERR_TRANSACCION' Mensaje;
+		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
 
@@ -27,42 +27,42 @@ SALIR: BEGIN
     END IF;
 
 	IF pIdUsuario = 1 THEN
-		SELECT 'ERR_BORRAR_USUARIO_ADAM' Mensaje;
+		SELECT 'ERROR_BORRAR_USUARIO_ADAM' Mensaje;
 		LEAVE SALIR;
 	END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Presupuestos p USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_PRESUPUESTO' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_PRESUPUESTO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Ventas v USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_VENTA' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_VENTA' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN OrdenesProduccion op USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_OP' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_OP' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Comprobantes c USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_COMPROBANTE' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_COMPROBANTE' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Remitos r USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_REMITO' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_REMITO' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Tareas t ON u.IdUsuario = t.IdUsuarioFabricante WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_TAREA_F' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_TAREA_F' Mensaje;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Tareas t ON u.IdUsuario = t.IdUsuarioRevisor WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERR_BORRAR_USUARIO_TAREA_R' Mensaje;
+        SELECT 'ERROR_BORRAR_USUARIO_TAREA_R' Mensaje;
         LEAVE SALIR;
     END IF;
     

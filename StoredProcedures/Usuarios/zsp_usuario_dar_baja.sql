@@ -23,17 +23,17 @@ SALIR: BEGIN
     END IF;
     
     IF pIdUsuario IS NULL THEN
-		SELECT 'ERR_INDICAR_USUARIO' pMensaje;
+		SELECT 'ERROR_INDICAR_USUARIO' pMensaje;
         LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS (SELECT IdUsuario From Usuarios WHERE IdUsuario = pIdUsuario) THEN
-		SELECT 'ERR_NOEXISTE_USUARIO' pMensaje;
+		SELECT 'ERROR_NOEXISTE_USUARIO' pMensaje;
         LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'A') THEN
-		SELECT 'ERR_USUARIO_ESTA_BAJA' pMensaje;
+		SELECT 'ERROR_USUARIO_ESTA_BAJA' pMensaje;
         LEAVE SALIR;
 	END IF;
 		
