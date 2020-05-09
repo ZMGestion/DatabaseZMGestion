@@ -14,7 +14,7 @@ BEGIN
 
     SET pRespuesta = (SELECT 
         COALESCE(
-            GROUP_CONCAT(
+            JSON_ARRAYAGG(
                 JSON_OBJECT("Roles",
                     JSON_OBJECT(
                         'IdRol', IdRol, 
@@ -29,4 +29,3 @@ BEGIN
     SELECT f_generarRespuestaLista(NULL, pRespuesta) pOut;
 END $$
 DELIMITER ;
-
