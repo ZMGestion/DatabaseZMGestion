@@ -1,18 +1,7 @@
 DROP PROCEDURE IF EXISTS `zsp_usuarios_buscar`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuarios_buscar`(
-    pToken varchar(256),
-    pNombresApellidos varchar(80),
-    pUsuario varchar(40),
-    pEmail varchar(120),
-    pDocumento varchar(15),
-    pTelefono varchar(15),
-    pEstadoCivil char(1),
-    pTieneHijos char(1),
-    pEstado char(1),
-    pIdRol tinyint,
-    pIdUbicacion tinyint)
+CREATE PROCEDURE `zsp_usuarios_buscar`(pIn JSON)
 SALIR: BEGIN
 	/*
 		Permite buscar los usuarios por una cadena, o bien, por sus nombres y apellidos, nombre de usuario, email, documento, telefono,
@@ -23,23 +12,76 @@ SALIR: BEGIN
     DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pMensaje text;
 
+    DECLARE pUsuarios JSON;
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pRespuesta JSON;
+    DECLARE pIdUsuario smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pIdRol tinyint;
+    DECLARE pIdUbicacion tinyint;
+    DECLARE pIdTipoDocumento tinyint;
+    DECLARE pDocumento varchar(15);
+    DECLARE pNombres varchar(60);
+    DECLARE pApellidos varchar(60);
+    DECLARE pEstadoCivil char(1);
+    DECLARE pTelefono varchar(15);
+    DECLARE pEmail varchar(120);
+    DECLARE pCantidadHijos tinyint;
+    DECLARE pUsuario varchar(40);
+    DECLARE pPassword varchar(255);
+    DECLARE pFechaNacimiento date;
+    DECLARE pFechaInicio date;
+    DECLARE pNombresApellidos varchar(120);
+    DECLARE pEstado char(1);
+    DECLARE pTieneHijos char(1);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuarios_buscar', pIdUsuarioEjecuta, pMensaje);
-	IF pMensaje!='OK' THEN
-		SELECT pMensaje Mensaje;
-		LEAVE SALIR;
-	END IF;
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pUsuarios = pIn ->> "$.Usuarios";
+    SET pIdRol = pUsuarios ->> "$.IdRol";
+    SET pIdUbicacion = pUsuarios ->> "$.IdUbicacion";
+    SET pIdTipoDocumento = pUsuarios ->> "$.IdTipoDocumento";
+    SET pDocumento = pUsuarios ->> "$.Documento";
+    SET pNombres = pUsuarios ->> "$.Nombres";
+    SET pApellidos = pUsuarios ->> "$.Apellidos";
+    SET pEstadoCivil = pUsuarios ->> "$.EstadoCivil";
+    SET pIdRol = pUsuarios ->> "$.IdRol";
+    SET pTelefono = pUsuarios ->> "$.Telefono";
+    SET pEmail = pUsuarios ->> "$.Email";
+    SET pCantidadHijos = pUsuarios ->> "$.CantidadHijos";
+    SET pPassword = pUsuarios ->> "$.Password";
+    SET pUsuario = pUsuarios ->> "$.Usuario";
+    SET pFechaNacimiento = pUsuarios ->> "$.FechaNacimiento";
+    SET pFechaInicio = pUsuarios ->> "$.FechaInicio";
+    SET pEstado = pUsuarios ->> "$.Estado";
+    SET pNombresApellidos = CONCAT(pNombres, pApellidos);
+
 
     IF pEstado IS NULL OR pEstado = '' OR pEstado NOT IN ('A','B') THEN
 		SET pEstado = 'T';
 	END IF;
 
     IF pEstadoCivil IS NULL OR pEstadoCivil = '' OR pEstadoCivil NOT IN ('C','S','D') THEN
-		SET pEstado = 'T';
+		SET pEstadoCivil = 'T';
 	END IF;
 
-    IF pTieneHijos IS NULL OR pTieneHijos = '' OR pTieneHijos NOT IN ('S','N') THEN
+    -- IF pTieneHijos IS NULL OR pTieneHijos = '' OR pTieneHijos NOT IN ('S','N') THEN
 		SET pTieneHijos = 'T';
-	END IF;
+	-- END IF;
     
     SET pNombresApellidos = COALESCE(pNombresApellidos,'');
     SET pUsuario = COALESCE(pUsuario,'');
@@ -49,8 +91,42 @@ SALIR: BEGIN
     SET pIdRol = COALESCE(pIdRol,0);
     SET pIdUbicacion = COALESCE(pIdUbicacion,0);
     
-	SELECT		u.*, Rol, Ubicacion,
-				IF(u.Estado = 'B','S','N') OpcionDarAlta, IF(u.Estado = 'A','S','N') OpcionDarBaja
+	SET pRespuesta = (SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    "Usuarios",
+                    JSON_OBJECT(
+						'IdUsuario', IdUsuario,
+                        'IdRol', IdRol,
+                        'IdUbicacion', IdUbicacion,
+                        'IdTipoDocumento', IdTipoDocumento,
+                        'Documento', Documento,
+                        'Nombres', Nombres,
+                        'Apellidos', Apellidos,
+                        'EstadoCivil', EstadoCivil,
+                        'Telefono', Telefono,
+                        'Email', Email,
+                        'CantidadHijos', CantidadHijos,
+                        'Usuario', Usuario,
+                        'FechaUltIntento', FechaUltIntento,
+                        'FechaNacimiento', FechaNacimiento,
+                        'FechaInicio', FechaInicio,
+                        'FechaAlta', u.FechaAlta,
+                        'FechaBaja', u.FechaBaja,
+                        'Estado', u.Estado
+					),
+                    "Roles",
+                    JSON_OBJECT(
+                        'IdRol', IdRol,
+                        'Rol', Rol
+					),
+                    "Ubicaciones",
+                    JSON_OBJECT(
+                        'IdUbicacion', IdUbicacion,
+                        'Ubicacion', Ubicacion
+					)
+                )
+            )
+
 	FROM		Usuarios u
 	INNER JOIN	Roles r USING (IdRol)
     INNER JOIN	Ubicaciones USING (IdUbicacion)
@@ -67,7 +143,11 @@ SALIR: BEGIN
                 (u.Estado = pEstado OR pEstado = 'T') AND
                 (u.EstadoCivil = pEstadoCivil OR pEstadoCivil = 'T') AND
                 IF(pTieneHijos = 'S', u.CantidadHijos > 0, IF(pTieneHijos = 'N', u.CantidadHijos = 0, pTieneHijos = 'T'))
-	ORDER BY	CONCAT(Apellidos, ' ', Nombres), Usuario;
+	ORDER BY	CONCAT(Apellidos, ' ', Nombres), Usuario);
+
+    SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+
+
 END $$
 DELIMITER ;
 
