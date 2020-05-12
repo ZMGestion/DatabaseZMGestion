@@ -1,3 +1,11 @@
+DROP FUNCTION IF EXISTS `f_generarRespuesta`;
+DELIMITER $$
+CREATE FUNCTION `f_generarRespuesta`(pCodigoError varchar(255), pRespuesta JSON) RETURNS JSON
+    DETERMINISTIC
+BEGIN
+    RETURN JSON_OBJECT("error", pCodigoError, "respuesta", pRespuesta);
+END $$
+DELIMITER ;
 DROP FUNCTION IF EXISTS `f_split`;
 DELIMITER $$
 CREATE FUNCTION `f_split`(pCadena longtext, pDelimitador varchar(10), pIndice int) RETURNS text CHARSET utf8
@@ -15,33 +23,48 @@ END $$
 DELIMITER ;
 DROP PROCEDURE IF EXISTS `zsp_rol_asignar_permisos`;
 DELIMITER $$
-CREATE  PROCEDURE `zsp_rol_asignar_permisos`(pToken varchar(256), pIdRol tinyint, pPermisos varchar(5000))
+CREATE  PROCEDURE `zsp_rol_asignar_permisos`(pIn JSON)
 
 SALIR: BEGIN
 	/*
 		Dado el rol y una cadena formada por la lista de los IdPermisos separados por comas, asigna los permisos seleccionados como dados y quita los no dados.
 		Cambia el token de los usuarios del rol así deban reiniciar sesión y retomar permisos.
-		Devuelve OK o el mensaje de error en Mensaje.
+		Devuelve null en 'respuesta' o el codigo de error en 'error'.
 	*/	
-    DECLARE pIndice, pIdPermiso, pIdUsuarioEjecuta smallint;
+    DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pNumero varchar(11);
 	DECLARE pMensaje text;
+	DECLARE pRoles, pPermisos, pUsuariosEjecuta JSON;
+	DECLARE pIdRol int;
+	DECLARE pToken varchar(256);
+
+	/*Para el While*/
+	DECLARE i INT DEFAULT 0;
+	DECLARE pPermiso JSON;
+	DECLARE pIdPermiso smallint;
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
 		SHOW ERRORS;
-		SELECT 'ERROR_TRANSACCION' Mensaje;
+		SELECT f_generarRespuesta('ERROR_TRANSACCION', NULL) pOut;
         ROLLBACK;
 	END;
+
+	SET pRoles = pIn ->> '$.Roles';
+	SET pUsuariosEjecuta = pIn ->> '$.UsuariosEjecuta';
+	SET pPermisos = pIn ->> '$.Permisos';
+
+    SET pIdRol = pRoles ->> '$.IdRol';
+    SET pToken = pUsuariosEjecuta ->> '$.Token';
 	
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_rol_asignar_permisos', pIdUsuarioEjecuta, pMensaje);
 	IF pMensaje != 'OK' THEN
-		SELECT pMensaje Mensaje;
+		SELECT f_generarRespuesta(pMensaje, NULL) pOut;
 		LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS(SELECT IdRol FROM Roles WHERE IdRol = pIdRol)THEN
-		SELECT 'ERROR_NOEXISTE_ROL' Mensaje;
+		SELECT f_generarRespuesta('ERROR_NOEXISTE_ROL', NULL) pOut;
         LEAVE SALIR;
     END IF;
     
@@ -51,22 +74,18 @@ SALIR: BEGIN
         SELECT * FROM PermisosRol WHERE IdRol = pIdRol;
 		
         DELETE FROM PermisosRol WHERE IdRol = pIdRol;
-        SET pIndice = 0;
-        
-        loop_1: LOOP
-			SET pIndice = pIndice + 1;
-            SET pNumero = f_split(pPermisos, ',', pIndice);
-            IF pNumero = '' THEN
-				LEAVE loop_1;
-			END IF;
-            SET pIdPermiso = pNumero;
-            IF NOT EXISTS(SELECT IdPermiso FROM Permisos WHERE IdPermiso = pIdPermiso)THEN
-				SELECT 'ERROR_NOEXISTE_PERMISO_LISTA' Mensaje;
+
+		WHILE i < JSON_LENGTH(pPermisos) DO
+			SELECT JSON_EXTRACT(pPermisos,CONCAT('$[',i,']')) INTO pPermiso;
+			SET pIdPermiso = pPermiso ->> '$.IdPermiso';
+			IF NOT EXISTS(SELECT IdPermiso FROM Permisos WHERE IdPermiso = pIdPermiso)THEN
+				SELECT f_generarRespuesta('ERROR_NOEXISTE_PERMISO_LISTA', NULL) pOut;
                 ROLLBACK;
                 LEAVE SALIR;
             END IF;
             INSERT INTO PermisosRol VALUES(pIdPermiso, pIdRol);
-		END LOOP loop_1;
+			SELECT i + 1 INTO i;
+		END WHILE;
 
         IF EXISTS(SELECT IdPermiso
 			FROM
@@ -80,7 +99,7 @@ SALIR: BEGIN
 			HAVING COUNT(IdPermiso) = 1) THEN /*Si existen cambios, es decir existe un nuevo tipo de permiso respecto a la tabla original (tmp_permisosrol) => Reseteamos token.*/
                 UPDATE Usuarios SET Token = md5(CONCAT(CONVERT(IdUsuario,char(10)),UNIX_TIMESTAMP())) WHERE IdRol = pIdRol;
 		END IF;
-        SELECT 'OK' Mensaje;
+		SELECT f_generarRespuesta(NULL, NULL) pOut;
         DROP TEMPORARY TABLE IF EXISTS tmp_permisosrol;
 	COMMIT;    
 END $$
@@ -88,40 +107,50 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_rol_borrar`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_rol_borrar`(pToken varchar(256), pIdRol tinyint)
+CREATE PROCEDURE `zsp_rol_borrar`(pIn JSON)
 
 SALIR: BEGIN
     /*
         Permite borrar un rol controlando que no exista un usuario asociado.
-        Devuelve OK o el mensaje de error en Mensaje.
+        Devuelve null en 'respuesta' o el codigo de error en 'error'.
     */
     DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pMensaje text;
-    
+    DECLARE pRoles JSON;
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdRol int;
+    DECLARE pToken varchar(256);
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERROR_TRANSACCION' Mensaje;
+        SELECT f_generarRespuesta('ERROR_TRANSACCION', NULL) pOut;
         ROLLBACK;
 	END;
 
+    SET pRoles = pIn ->> '$.Roles';
+    SET pIdRol = pRoles ->> '$.IdRol';
+
+    SET pUsuariosEjecuta = pIn ->> '$.UsuariosEjecuta';
+    SET pToken = pUsuariosEjecuta ->> '$.Token';
+
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_rol_borrar', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
-        SELECT pMensaje Mensaje;
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
     
     IF pIdRol IS NULL THEN
-		SELECT 'ERROR_INDICAR_ROL' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INDICAR_ROL', NULL) pOut;
         LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS(SELECT IdRol FROM Roles WHERE IdRol = pIdRol) THEN
-        SELECT 'ERROR_NOEXISTE_ROL' Mensaje;
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_ROL', NULL) pOut;
         LEAVE SALIR;
     END IF;
     
 	IF EXISTS(SELECT IdRol FROM Usuarios WHERE IdRol = pIdRol) THEN
-		SELECT 'ERROR_BORRAR_ROL_USUARIO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_BORRAR_ROL_USUARIO', NULL) pOut;
 		LEAVE SALIR;
 	END IF;
 	
@@ -129,7 +158,7 @@ SALIR: BEGIN
 	
         DELETE FROM PermisosRol WHERE IdRol = pIdRol;
         DELETE FROM Roles WHERE IdRol = pIdRol;
-        SELECT 'OK' Mensaje;
+        SELECT f_generarRespuesta(NULL, NULL) pOut;
 
 	COMMIT;
 END $$
@@ -137,98 +166,245 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_rol_crear`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_rol_crear`(pToken varchar(256), pRol varchar(40), pDescripcion varchar(255))
+CREATE PROCEDURE `zsp_rol_crear`(pIn JSON)
 
 SALIR: BEGIN
 	/*
 		Permite crear un rol controlando que el nombre no exista ya. 
-		Devuelve 'OK'+Id o el mensaje de error en Mensaje.
+		Devuelve el rol creado en 'respuesta' o el codigo de error en 'error'.
 	*/
+	DECLARE pRoles JSON;
+	DECLARE pUsuarioEjecuta JSON;
     DECLARE pIdUsuarioEjecuta smallint;
 	DECLARE pMensaje text;
-	DECLARE pIdRol smallint;
-    
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+	DECLARE pIdRol tinyint;
+	DECLARE pToken varchar(256);
+	DECLARE pRol varchar(40);
+	DECLARE pDescripcion varchar(255);
+	DECLARE pRespuesta JSON;
+
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERROR_TRANSACCION' Mensaje;
+		SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
 	END;
+
+	SET pRoles = pIn ->> "$.Roles";
+	SET pUsuarioEjecuta = pIn ->> "$.UsuariosEjecuta";
+	SET pToken = pUsuarioEjecuta ->> "$.Token";
+	SET pRol = pRoles ->> "$.Rol";
+	SET pDescripcion = pRoles ->> "$.Descripcion";
     
 	CALL zsp_usuario_tiene_permiso(pToken, 'zsp_rol_crear', pIdUsuarioEjecuta, pMensaje);
 	IF pMensaje!='OK' THEN
-		SELECT pMensaje Mensaje;
+		SELECT f_generarRespuesta(pMensaje, NULL) pOut;
 		LEAVE SALIR;
 	END IF;
     
 	IF (pRol IS NULL OR pRol = '') THEN
-        SELECT 'ERROR_INGRESAR_NOMBREROL' Mensaje;
+		SELECT f_generarRespuesta('ERROR_INGRESAR_NOMBREROL', NULL) pOut;
         LEAVE SALIR;
 	END IF;
     
     IF EXISTS(SELECT Rol FROM Roles WHERE Rol = pRol) THEN
-		SELECT 'ERROR_EXISTE_NOMBREROL' Mensaje;
+		SELECT f_generarRespuesta('ERROR_EXISTE_NOMBREROL', NULL) pOut;
 		LEAVE SALIR;
 	END IF;	
 
     START TRANSACTION;
 		
-        INSERT INTO Roles VALUES (DEFAULT, pRol, 'A', NULLIF(pDescripcion,''));
+        INSERT INTO Roles VALUES (DEFAULT, pRol, NOW(), NULLIF(pDescripcion,''));
 		SET pIdRol = (SELECT IdRol FROM Roles WHERE Rol = pRol);
-		SELECT CONCAT('OK',pIdRol) Mensaje;
-
+		SET pRespuesta = (SELECT (CAST(
+			COALESCE(
+					JSON_OBJECT(
+						'IdRol', IdRol, 
+						'Rol', Rol,
+						'FechaAlta', FechaAlta,
+						'Descripcion', Descripcion
+						)
+					,'')
+			AS JSON)) FROM Roles WHERE Rol = pRol);
+		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta)) AS pOut;
 	COMMIT;
 END $$
 DELIMITER ;
-
 DROP PROCEDURE IF EXISTS `zsp_rol_dame`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_rol_dame`(pIdRol tinyint)
+CREATE PROCEDURE `zsp_rol_dame`(pIn JSON)
 
-BEGIN
+SALIR: BEGIN
     /*
-        Procedimiento que sirve para instanciar un rol desde la base de datos.
+        Procedimiento que sirve para instanciar un rol desde la base de datos. Devuelve el objeto en 'respuesta' o un error en 'error'.
     */
-	SELECT	*
-    FROM	Roles
-    WHERE	IdRol = pIdRol;
-END $$
-DELIMITER ;
+    DECLARE pRoles JSON;
+    DECLARE pIdRol int;
+    DECLARE pRespuesta JSON;
 
-DROP PROCEDURE IF EXISTS `zsp_roles_listar`;
-DELIMITER $$
-CREATE PROCEDURE `zsp_roles_listar`()
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+		SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
 
-BEGIN
-	/*
-		Lista todos los roles existentes.
-        Ordena por Rol.
-	*/
-    
-    SELECT	* 
-    FROM Roles r 
-    ORDER BY Rol;
+    SET pRoles = pIn ->> '$.Roles';
+    SET pIdRol = pRoles ->> '$.IdRol';
+
+	SET pRespuesta = (
+        SELECT CAST(
+				COALESCE(
+					JSON_OBJECT(
+						'IdRol', IdRol, 
+						'Rol', Rol,
+						'FechaAlta', FechaAlta,
+						'Descripcion', Descripcion
+					)
+				,'') AS JSON)
+        FROM	Roles
+        WHERE	IdRol = pIdRol
+    );
+
+    SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta)) pOut;
 
 END $$
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_rol_listar_permisos`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_rol_listar_permisos`(pIdRol tinyint)
+CREATE PROCEDURE `zsp_rol_listar_permisos`(pIn JSON)
 
 BEGIN
 	/*
-		Lista todos los permisos existentes para un rol
+		Lista todos los permisos existentes para un rol y devuelve la lista de permisos en 'respuesta' o el codigo de error en 'error'.
 	*/
-    
-    SELECT	* 
-    FROM Permisos p 
+    DECLARE pRoles JSON;
+    DECLARE pIdRol int;
+    DECLARE pRespuesta TEXT;
+
+    SET pRoles = pIn ->> '$.Roles';
+    SET pIdRol = pRoles ->> '$.IdRol';
+
+    SET pRespuesta = (SELECT 
+        COALESCE(
+            JSON_ARRAYAGG(
+                JSON_OBJECT('Permisos',
+                    JSON_OBJECT(
+                        'IdPermiso', IdPermiso, 
+                        'Permiso', Permiso,
+                        'Procedimiento', Procedimiento,
+                        'Descripcion', Descripcion
+                    )
+                )
+            )
+        ,'')
+	FROM Permisos p 
     INNER JOIN PermisosRol pr USING(IdPermiso)
     WHERE pr.IdRol = pIdRol
-    ORDER BY Procedimiento;
+    ORDER BY Procedimiento);
+
+    SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
 
 END $$
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS `zsp_rol_modificar`;
+DELIMITER $$
+CREATE PROCEDURE `zsp_rol_modificar`(pIn JSON)
+
+SALIR: BEGIN
+	/*
+		Permite modificar un rol controlando que el nombre no exista ya. 
+		Devuelve el rol modifica en 'respuesta' o el codigo de error en 'error'.
+	*/
+	DECLARE pRoles JSON;
+	DECLARE pUsuarioEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+	DECLARE pMensaje text;
+	DECLARE pIdRol tinyint;
+	DECLARE pToken varchar(256);
+	DECLARE pRol varchar(40);
+	DECLARE pDescripcion varchar(255);
+	DECLARE pRespuesta JSON;
+
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+		SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+	SET pRoles = pIn ->> "$.Roles";
+	SET pUsuarioEjecuta = pIn ->> "$.UsuariosEjecuta";
+	SET pToken = pUsuarioEjecuta ->> "$.Token";
+    SET pIdRol = pRoles ->> "$.IdRol";
+	SET pRol = pRoles ->> "$.Rol";
+	SET pDescripcion = pRoles ->> "$.Descripcion";
+    
+	CALL zsp_usuario_tiene_permiso(pToken, 'zsp_rol_crear', pIdUsuarioEjecuta, pMensaje);
+	IF pMensaje!='OK' THEN
+		SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+		LEAVE SALIR;
+	END IF;
+    
+	IF (pRol IS NULL OR pRol = '') THEN
+		SELECT f_generarRespuesta('ERROR_INGRESAR_NOMBREROL', NULL) pOut;
+        LEAVE SALIR;
+	END IF;
+    
+    IF EXISTS(SELECT Rol FROM Roles WHERE Rol = pRol AND IdRol != pIdRol) THEN
+		SELECT f_generarRespuesta('ERROR_EXISTE_NOMBREROL', NULL) pOut;
+		LEAVE SALIR;
+	END IF;	
+
+    START TRANSACTION;
+		
+        UPDATE Roles 
+        SET Rol = pRol,
+            Descripcion = NULLIF(pDescripcion,'')
+        WHERE IdRol = pIdRol;
+        
+		SET pRespuesta = (SELECT (CAST(
+			COALESCE(
+					JSON_OBJECT(
+						'IdRol', IdRol, 
+						'Rol', Rol,
+						'FechaAlta', FechaAlta,
+						'Descripcion', Descripcion
+						)
+					,'')
+			AS JSON)) FROM Roles WHERE IdRol = pIdRol);
+		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta)) AS pOut;
+	COMMIT;
+END $$
+DELIMITER ;
+DROP PROCEDURE IF EXISTS `zsp_roles_listar`;
+DELIMITER $$
+CREATE PROCEDURE `zsp_roles_listar`()
+
+BEGIN
+	/*
+		Lista todos los roles existentes. Ordena por Rol. Devuelve la lista de roles en 'respuesta' o el codigo de error en 'error'.
+	*/
+    DECLARE pOut JSON;
+    DECLARE pRespuesta TEXT;
+
+
+    SET pRespuesta = (SELECT 
+        COALESCE(
+            JSON_ARRAYAGG(
+                JSON_OBJECT("Roles",
+                    JSON_OBJECT(
+                        'IdRol', IdRol, 
+                        'Rol', Rol,
+                        'FechaAlta', FechaAlta,
+                        'Descripcion', Descripcion
+                    )
+                )
+            ),'')
+	FROM Roles
+    ORDER BY Rol);
+    SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+END $$
+DELIMITER ;
 DROP PROCEDURE IF EXISTS `zsp_usuario_borrar`;
 
 DELIMITER $$
@@ -313,7 +489,7 @@ SALIR:BEGIN
         Debe existir el Rol, TipoDocumento y la Ubicacion.
         Almacena el hash de la contraseña.
         Todos los campos son obligatorios.
-        Devuelve 'OK' + IdUsuario o el mensaje de error en  Mensaje.
+        Devuelve un json con el usuario creado en respuesta o el codigo de error en error.
     */
     DECLARE pIdUsuario smallint;
     DECLARE pMensaje text;
@@ -321,6 +497,7 @@ SALIR:BEGIN
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
+        SHOW ERRORS;
 		SELECT 'ERROR_TRANSACCION' Mensaje;
         ROLLBACK;
 	END;
@@ -416,16 +593,28 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-
-
     START TRANSACTION;
-        INSERT INTO Usuarios SELECT 0, pIdRol, pIdUbicacion, pIdTipoDocumento, pDocumento, pNombres, pApellidos, pEstadoCivil, pTelefono, pEmail, pCantidadHijos, pUsuario, pPassword, NULL, 0, NULL ,pFechaNacimiento, pFechaInicio, NOW(), NULL,'A';
+        INSERT INTO Usuarios SELECT 0, pIdRol, pIdUbicacion, pIdTipoDocumento, pDocumento, pNombres, pApellidos, pEstadoCivil, pTelefono, pEmail, pCantidadHijos, pUsuario, pPassword, NULL, NULL, 0 ,pFechaNacimiento, pFechaInicio, NOW(), NULL,'A';
         SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Email = pEmail);
-        SELECT 'OK ', Mensaje;
+        SELECT 'OK ' Mensaje;
     COMMIT;
 END $$
 DELIMITER ;
 
+
+DROP PROCEDURE IF EXISTS `zsp_usuario_dame`;
+DELIMITER $$
+CREATE PROCEDURE `zsp_usuario_dame`(pIdUsuario smallint)
+
+BEGIN
+    /*
+        Procedimiento que sirve para instanciar un usuario por id desde la base de datos.
+    */
+	SELECT	*
+    FROM	Usuarios
+    WHERE	IdUsuario = pIdUsuario;
+END $$
+DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_usuario_dame_por_token`;
 
@@ -440,20 +629,6 @@ BEGIN
 	SELECT	*
     FROM	Usuarios
     WHERE	Token = pToken;
-END $$
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS `zsp_usuario_dame`;
-DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_dame`(pIdUsuario smallint)
-
-BEGIN
-    /*
-        Procedimiento que sirve para instanciar un usuario por id desde la base de datos.
-    */
-	SELECT	*
-    FROM	Usuarios
-    WHERE	IdUsuario = pIdUsuario;
 END $$
 DELIMITER ;
 
@@ -545,56 +720,6 @@ SALIR: BEGIN
 
 END $$
 DELIMITER ;
-
-DROP PROCEDURE IF EXISTS `zsp_usuario_modificar_pass`;
-
-DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_modificar_pass`(pToken varchar(256),pPasswordActual varchar(255), pPasswordNueva varchar(255))
-
-SALIR:BEGIN
-    /*
-        Procedimiento que permite a un usuario modifcar su contraseña comprobando que la contraseña actual ingresada sea correcta.
-        Devuelve 'OK' o el mensaje de error en Mensaje
-    */
-    DECLARE pMensaje text;
-    DECLARE pIdUsuarioEjecuta smallint;
-
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-		SELECT 'ERROR_TRANSACCION' Mensaje;
-        ROLLBACK;
-	END;
-
-    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_modificar_pass', pIdUsuarioEjecuta, pMensaje);
-
-    IF pMensaje != 'OK' THEN
-        SELECT pMensaje Mensaje;
-        LEAVE SALIR;
-    END IF;
-
-    IF NOT EXISTS(SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuarioEjecuta AND Password = pPasswordActual) THEN
-        SELECT 'ERROR_PASSWORD_INCORRECTA' Mensaje;
-        LEAVE SALIR;
-    END IF;
-
-    IF (pPasswordActual = pPasswordNueva) THEN
-        SELECT 'ERROR_PASSOWRDS_IGUALES' Mensaje;
-        LEAVE SALIR;
-    END IF;
-
-
-    IF(pPasswordNueva IS NULL OR pPasswordNueva = '') THEN
-        SELECT 'ERROR_INGRESAR_PASSWORD' Mensaje;
-        LEAVE SALIR;
-    END IF;
-    
-    UPDATE  Usuarios 
-    SET Password = pPasswordNueva
-    WHERE IdUsuario = pIdUsuarioEjecuta;
-    SELECT 'OK ' Mensaje;
-END $$
-DELIMITER ;
-
 
 DROP PROCEDURE IF EXISTS `zsp_usuario_modificar`;
 
@@ -733,6 +858,56 @@ END $$
 DELIMITER ;
 
 
+DROP PROCEDURE IF EXISTS `zsp_usuario_modificar_pass`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_usuario_modificar_pass`(pToken varchar(256),pPasswordActual varchar(255), pPasswordNueva varchar(255))
+
+SALIR:BEGIN
+    /*
+        Procedimiento que permite a un usuario modifcar su contraseña comprobando que la contraseña actual ingresada sea correcta.
+        Devuelve 'OK' o el mensaje de error en Mensaje
+    */
+    DECLARE pMensaje text;
+    DECLARE pIdUsuarioEjecuta smallint;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+		SELECT 'ERROR_TRANSACCION' Mensaje;
+        ROLLBACK;
+	END;
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_modificar_pass', pIdUsuarioEjecuta, pMensaje);
+
+    IF pMensaje != 'OK' THEN
+        SELECT pMensaje Mensaje;
+        LEAVE SALIR;
+    END IF;
+
+    IF NOT EXISTS(SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuarioEjecuta AND Password = pPasswordActual) THEN
+        SELECT 'ERROR_PASSWORD_INCORRECTA' Mensaje;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pPasswordActual = pPasswordNueva) THEN
+        SELECT 'ERROR_PASSOWRDS_IGUALES' Mensaje;
+        LEAVE SALIR;
+    END IF;
+
+
+    IF(pPasswordNueva IS NULL OR pPasswordNueva = '') THEN
+        SELECT 'ERROR_INGRESAR_PASSWORD' Mensaje;
+        LEAVE SALIR;
+    END IF;
+    
+    UPDATE  Usuarios 
+    SET Password = pPasswordNueva
+    WHERE IdUsuario = pIdUsuarioEjecuta;
+    SELECT 'OK ' Mensaje;
+END $$
+DELIMITER ;
+
+
 DROP PROCEDURE IF EXISTS `zsp_usuario_restablecer_pass`;
 
 DELIMITER $$
@@ -777,6 +952,33 @@ SALIR:BEGIN
 END $$
 DELIMITER ;
 
+
+DROP PROCEDURE IF EXISTS `zsp_usuario_tiene_permiso`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_usuario_tiene_permiso`(pToken varchar(256), pProcedimiento varchar(255), out pIdUsuario smallint, out pMensaje text)
+
+
+BEGIN
+    /*
+        Permite determinar si un usuario, a traves de su Token, tiene los permisos necesarios para ejecutar cierto procedimiento.
+    */
+
+	SELECT  IdUsuario
+    INTO    pIdUsuario
+    FROM    Usuarios u
+    INNER JOIN  PermisosRol pr USING(IdRol)
+    INNER JOIN  Permisos p USING(IdPermiso)
+    WHERE   u.Token = pToken AND u.Estado = 'A'
+            AND p.Procedimiento = pProcedimiento;
+    
+    IF pIdUsuario IS NULL THEN
+        SET pMensaje = 'ERROR_SIN_PERMISOS';
+    ELSE
+        SET pMensaje = 'OK';
+    END IF;
+END $$
+DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_usuarios_buscar`;
 
@@ -851,123 +1053,121 @@ SALIR: BEGIN
 END $$
 DELIMITER ;
 
-DROP PROCEDURE IF EXISTS `zsp_usuario_tiene_permiso`;
-
-DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_tiene_permiso`(pToken varchar(256), pProcedimiento varchar(255), out pIdUsuario smallint, out pMensaje text)
-
-
-BEGIN
-    /*
-        Permite determinar si un usuario, a traves de su Token, tiene los permisos necesarios para ejecutar cierto procedimiento.
-    */
-
-	SELECT  IdUsuario
-    INTO    pIdUsuario
-    FROM    Usuarios u
-    INNER JOIN  PermisosRol pr USING(IdRol)
-    INNER JOIN  Permisos p USING(IdPermiso)
-    WHERE   u.Token = pToken AND u.Estado = 'A'
-            AND p.Procedimiento = pProcedimiento;
-    
-    IF pIdUsuario IS NULL THEN
-        SET pMensaje = 'ERROR_SIN_PERMISOS';
-    ELSE
-        SET pMensaje = 'OK';
-    END IF;
-END $$
-DELIMITER ;
-
 DROP PROCEDURE IF EXISTS `zsp_sesion_cerrar`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_sesion_cerrar`(pToken varchar(256), pIdUsuario smallint)
+CREATE PROCEDURE `zsp_sesion_cerrar`(pIn JSON)
 
 SALIR: BEGIN
     /*
-        Permite borrar un rol controlando que no exista un usuario asociado.
+        Permite cerrar la sesion de un usuario a partir de su Id.
         Devuelve OK o el mensaje de error en Mensaje.
     */
     DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pIdUsuario smallint;
+    DECLARE pUsuarios, pUsuariosEjecuta JSON;
+    DECLARE pToken varchar(256);
     DECLARE pMensaje text;
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERROR_TRANSACCION' Mensaje;
+		SELECT f_generarRespuesta('ERROR_TRANSACCION', NULL) pOut;
         ROLLBACK;
 	END;
 
+    SET pUsuariosEjecuta = pIn ->> '$.UsuariosEjecuta';
+    SET pUsuarios = pIn ->> '$.Usuarios';
+    SET pToken = pUsuariosEjecuta ->> '$.Token';
+    SET pIdUsuario = pUsuarios ->> '$.IdUsuario';
+
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_sesion_cerrar', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
-        SELECT pMensaje Mensaje;
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
     
     IF pIdUsuario IS NULL THEN
-		SELECT 'ERROR_INDICAR_USUARIO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INDICAR_USUARIO', NULL) pOut;
         LEAVE SALIR;
 	END IF;
 
     IF NOT EXISTS(SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario) THEN
-        SELECT 'ERROR_NOEXISTE_USUARIO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_USUARIO', NULL) pOut;
         LEAVE SALIR;
     END IF;
 	
     START TRANSACTION;
-	
         UPDATE Usuarios
         SET Token = ''
         WHERE IdUsuario = pIdusuario;
-        SELECT 'OK' Mensaje;
-
+        SELECT f_generarRespuesta(NULL, NULL) pOut;
 	COMMIT;
 END $$
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_sesion_iniciar`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_sesion_iniciar`(pCredencial varchar(120), pPass varchar(255), pToken varchar(256))
+CREATE PROCEDURE `zsp_sesion_iniciar`(pIn JSON)
 
 SALIR: BEGIN
 	/*
 		Procedimiento que permite a un usuario iniciar sesion en ZMGestion.
-        Devuelve 'OK'+Id o el mensaje de error en  Mensaje.
+        Devuelve el usuario que ha iniciado sesion en pOut o el codigo de error en caso de error.
 	*/
     DECLARE pIdUsuario smallint;
     DECLARE pTIEMPOINTENTOS, pMAXINTPASS, pIntentos int;
     DECLARE pFechaUltIntento datetime;
+    DECLARE pUsuarios JSON;
+    DECLARE pPass VARCHAR(255);
+    DECLARE pUsuario VARCHAR(40);
+    DECLARE pEmail VARCHAR(120);
+    DECLARE pToken VARCHAR(120);
+
+    SET pUsuarios = pIn ->> '$.Usuarios';
+    SET pToken = pUsuarios ->> '$.Token'; 
 
     IF pToken IS NULL OR pToken = '' THEN
-        SELECT 'ERROR_TRANSACCION' Mensaje;
+        SELECT f_generarRespuesta('ERROR_TRANSACCION', NULL) pOut;
         LEAVE SALIR;
     END IF;
+    
+    SET pUsuario = pUsuarios ->> '$.Usuario';
+    SET pEmail = pUsuarios ->> '$.Email';
+    SET pPass = pUsuarios ->> '$.Password'; 
+
 
     SET pTIEMPOINTENTOS = (SELECT CONVERT(Valor, UNSIGNED) FROM Empresa WHERE Parametro='TIEMPOINTENTOS');
     SET pMAXINTPASS = (SELECT CONVERT(Valor, UNSIGNED) FROM Empresa WHERE Parametro='MAXINTPASS');
 
     
-    IF pCredencial IS NULL OR pCredencial = '' THEN
-        SELECT 'ERROR_INGRESE_USUARIOEMAIL' Mensaje;
+    IF (pUsuario IS NULL OR pUsuario = '') AND (pEmail IS NULL OR pEmail = '') THEN
+        SELECT f_generarRespuesta('ERROR_INGRESE_USUARIOEMAIL', NULL) pOut;
         LEAVE SALIR;
     END IF;
 
-    IF LOCATE('@', pCredencial) != 0 THEN
-        IF(NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE Email = pCredencial)) THEN
-            SELECT 'ERROR_LOGIN_INCORRECTO' Mensaje;
+    -- Control porque no se puede enviar usuario y correo electronico. Debe ser uno de los dos
+    IF (pUsuario IS NOT NULL AND pUsuario <> '') AND (pEmail IS NOT NULL AND pEmail <> '') THEN
+        SELECT f_generarRespuesta('ERROR_INGRESE_USUARIOEMAIL', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pEmail IS NOT NULL AND pEmail <> '' THEN
+        IF(NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE Email = pEmail)) THEN
+            SELECT f_generarRespuesta('ERROR_LOGIN_INCORRECTO', NULL) pOut;
             LEAVE SALIR;
 		ELSE
-			SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Email = pCredencial);
+			SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Email = pEmail);
         END IF;
     ELSE
-        IF NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE Usuario = pCredencial) THEN
-            SELECT 'ERROR_LOGIN_INCORRECTO' Mensaje;
+        IF NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE Usuario = pUsuario) THEN
+            SELECT f_generarRespuesta('ERROR_LOGIN_INCORRECTO', NULL) pOut;
             LEAVE SALIR;
         ELSE
-			SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Usuario = pCredencial);
+			SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Usuario = pUsuario);
         END IF;
     END IF;
 
     IF NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'A') THEN
-        SELECT 'ERROR_LOGIN_BLOQUEADO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_LOGIN_BLOQUEADO', NULL) pOut;
         LEAVE SALIR;
     END IF;
 
@@ -988,14 +1188,14 @@ SALIR: BEGIN
                     Estado = 'B'
                 WHERE IdUsuario = pIdUsuario;
                 COMMIT;
-                SELECT 'ERROR_LOGIN_BLOQUEADO' Mensaje;
+                SELECT f_generarRespuesta('ERROR_LOGIN_BLOQUEADO', NULL) pOut;
             ELSE
                 UPDATE Usuarios
                 SET Intentos = (pIntentos + 1),
                     FechaUltIntento = NOW()
                 WHERE IdUsuario = pIdUsuario;
                 COMMIT;
-                SELECT 'ERROR_LOGIN_INCORRECTO' Mensaje;
+                SELECT f_generarRespuesta('ERROR_LOGIN_INCORRECTO', NULL) pOut;
             END IF;
             LEAVE SALIR;
         ELSE
@@ -1004,10 +1204,37 @@ SALIR: BEGIN
                 FechaUltIntento = NOW(),
                 Intentos = 0
             WHERE IdUsuario = pIdUsuario;
-            SELECT CONCAT('OK',pIdUsuario) Mensaje;
+
+            SET pUsuarios = (
+                SELECT CAST(
+                        COALESCE(
+                            JSON_OBJECT(
+                                'IdUsuario', IdUsuario, 
+                                'IdRol', IdRol,
+                                'IdUbicacion', IdUbicacion,
+                                'IdTipoDocumento', IdTipoDocumento,
+                                'Documento', Documento,
+                                'Nombres', Nombres,
+                                'Apellidos', Apellidos,
+                                'EstadoCivil', EstadoCivil,
+                                'Telefono', Telefono,
+                                'Email', Email,
+                                'CantidadHijos', CantidadHijos,
+                                'Usuario', Usuario,
+                                'Token', Token,
+                                'FechaNacimiento', FechaNacimiento,
+                                'FechaInicio', FechaInicio,
+                                'FechaAlta', FechaAlta,
+                                'Estado', Estado
+                            )
+                        ,'') AS JSON)
+                FROM	Usuarios
+                WHERE	IdUsuario = pIdUsuario
+            );
+
+            SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pUsuarios)) pOut; 
         END IF;        
     COMMIT;
 
 END $$
 DELIMITER ;
-

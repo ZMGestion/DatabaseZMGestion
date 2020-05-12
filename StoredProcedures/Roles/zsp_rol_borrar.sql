@@ -5,7 +5,7 @@ CREATE PROCEDURE `zsp_rol_borrar`(pIn JSON)
 SALIR: BEGIN
     /*
         Permite borrar un rol controlando que no exista un usuario asociado.
-        Devuelve OK o el mensaje de error en Mensaje.
+        Devuelve null en 'respuesta' o el codigo de error en 'error'.
     */
     DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pMensaje text;

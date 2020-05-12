@@ -4,13 +4,11 @@ CREATE PROCEDURE `zsp_roles_listar`()
 
 BEGIN
 	/*
-		Lista todos los roles existentes.
-        Ordena por Rol y devuelve un JSON en pSalida.
+		Lista todos los roles existentes. Ordena por Rol. Devuelve la lista de roles en 'respuesta' o el codigo de error en 'error'.
 	*/
     DECLARE pOut JSON;
     DECLARE pRespuesta TEXT;
 
-    SET SESSION  group_concat_max_len = 1024*1024*1024;
 
     SET pRespuesta = (SELECT 
         COALESCE(
@@ -26,6 +24,6 @@ BEGIN
             ),'')
 	FROM Roles
     ORDER BY Rol);
-    SELECT f_generarRespuestaLista(NULL, pRespuesta) pOut;
+    SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
 END $$
 DELIMITER ;
