@@ -1,11 +1,11 @@
-DROP PROCEDURE IF EXISTS `zsp_rol_crear`;
+DROP PROCEDURE IF EXISTS `zsp_rol_modificar`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_rol_crear`(pIn JSON)
+CREATE PROCEDURE `zsp_rol_modificar`(pIn JSON)
 
 SALIR: BEGIN
 	/*
-		Permite crear un rol controlando que el nombre no exista ya. 
-		Devuelve el rol creado en 'respuesta' o el codigo de error en 'error'.
+		Permite modificar un rol controlando que el nombre no exista ya. 
+		Devuelve el rol modifica en 'respuesta' o el codigo de error en 'error'.
 	*/
 	DECLARE pRoles JSON;
 	DECLARE pUsuarioEjecuta JSON;
@@ -26,6 +26,7 @@ SALIR: BEGIN
 	SET pRoles = pIn ->> "$.Roles";
 	SET pUsuarioEjecuta = pIn ->> "$.UsuariosEjecuta";
 	SET pToken = pUsuarioEjecuta ->> "$.Token";
+    SET pIdRol = pRoles ->> "$.IdRol";
 	SET pRol = pRoles ->> "$.Rol";
 	SET pDescripcion = pRoles ->> "$.Descripcion";
     
@@ -40,15 +41,18 @@ SALIR: BEGIN
         LEAVE SALIR;
 	END IF;
     
-    IF EXISTS(SELECT Rol FROM Roles WHERE Rol = pRol) THEN
+    IF EXISTS(SELECT Rol FROM Roles WHERE Rol = pRol AND IdRol != pIdRol) THEN
 		SELECT f_generarRespuesta('ERROR_EXISTE_NOMBREROL', NULL) pOut;
 		LEAVE SALIR;
 	END IF;	
 
     START TRANSACTION;
 		
-        INSERT INTO Roles VALUES (DEFAULT, pRol, NOW(), NULLIF(pDescripcion,''));
-		SET pIdRol = (SELECT IdRol FROM Roles WHERE Rol = pRol);
+        UPDATE Roles 
+        SET Rol = pRol,
+            Descripcion = NULLIF(pDescripcion,'')
+        WHERE IdRol = pIdRol;
+        
 		SET pRespuesta = (SELECT (CAST(
 			COALESCE(
 					JSON_OBJECT(
@@ -58,7 +62,7 @@ SALIR: BEGIN
 						'Descripcion', Descripcion
 						)
 					,'')
-			AS JSON)) FROM Roles WHERE Rol = pRol);
+			AS JSON)) FROM Roles WHERE IdRol = pIdRol);
 		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Roles", pRespuesta)) AS pOut;
 	COMMIT;
 END $$

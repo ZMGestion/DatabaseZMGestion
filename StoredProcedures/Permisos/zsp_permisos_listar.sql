@@ -1,17 +1,13 @@
-DROP PROCEDURE IF EXISTS `zsp_rol_listar_permisos`;
+DROP PROCEDURE IF EXISTS `zsp_permisos_listar`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_rol_listar_permisos`(pIn JSON)
+CREATE PROCEDURE `zsp_permisos_listar`()
 
 BEGIN
 	/*
-		Lista todos los permisos existentes para un rol y devuelve la lista de permisos en 'respuesta' o el codigo de error en 'error'.
+		Lista todos los permisos existentes y devuelve la lista de permisos en 'respuesta' o el codigo de error en 'error'.
 	*/
-    DECLARE pRoles JSON;
-    DECLARE pIdRol int;
-    DECLARE pRespuesta TEXT;
 
-    SET pRoles = pIn ->> '$.Roles';
-    SET pIdRol = pRoles ->> '$.IdRol';
+    DECLARE pRespuesta TEXT;
 
     SET pRespuesta = (SELECT 
         COALESCE(
@@ -27,12 +23,9 @@ BEGIN
             )
         ,'')
 	FROM Permisos p 
-    INNER JOIN PermisosRol pr USING(IdPermiso)
-    WHERE pr.IdRol = pIdRol
     ORDER BY Procedimiento);
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
 
 END $$
 DELIMITER ;
-

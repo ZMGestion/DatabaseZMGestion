@@ -4,7 +4,7 @@ CREATE PROCEDURE `zsp_rol_dame`(pIn JSON)
 
 SALIR: BEGIN
     /*
-        Procedimiento que sirve para instanciar un rol desde la base de datos.
+        Procedimiento que sirve para instanciar un rol desde la base de datos. Devuelve el objeto en 'respuesta' o un error en 'error'.
     */
     DECLARE pRoles JSON;
     DECLARE pIdRol int;

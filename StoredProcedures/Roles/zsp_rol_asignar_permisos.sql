@@ -6,7 +6,7 @@ SALIR: BEGIN
 	/*
 		Dado el rol y una cadena formada por la lista de los IdPermisos separados por comas, asigna los permisos seleccionados como dados y quita los no dados.
 		Cambia el token de los usuarios del rol así deban reiniciar sesión y retomar permisos.
-		Devuelve OK o el mensaje de error en Mensaje.
+		Devuelve null en 'respuesta' o el codigo de error en 'error'.
 	*/	
     DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pNumero varchar(11);
