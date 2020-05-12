@@ -31,7 +31,7 @@ SALIR: BEGIN
     END IF;
     
     IF pIdUsuario IS NULL THEN
-        SELECT f_generarRespuesta('ERROR_INDICAR_USUARIO', NULL) pOut;
+        SELECT f_generarRespuesta('ERROR_INGRESAR_USUARIO', NULL) pOut;
         LEAVE SALIR;
 	END IF;
 
