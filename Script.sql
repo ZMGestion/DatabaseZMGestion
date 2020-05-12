@@ -657,7 +657,7 @@ SALIR: BEGIN
     END IF;
 
     IF pIdUsuario IS NULL THEN
-		SELECT 'ERROR_INDICAR_USUARIO' Mensaje;
+		SELECT 'ERROR_INGRESAR_USUARIO' Mensaje;
         LEAVE SALIR;
 	END IF;
 
@@ -700,7 +700,7 @@ SALIR: BEGIN
     END IF;
     
     IF pIdUsuario IS NULL THEN
-		SELECT 'ERROR_INDICAR_USUARIO' pMensaje;
+		SELECT 'ERROR_INGRESAR_USUARIO' pMensaje;
         LEAVE SALIR;
 	END IF;
 
@@ -1086,7 +1086,7 @@ SALIR: BEGIN
     END IF;
     
     IF pIdUsuario IS NULL THEN
-        SELECT f_generarRespuesta('ERROR_INDICAR_USUARIO', NULL) pOut;
+		SELECT 'ERROR_INGRESAR_USUARIO' Mensaje;
         LEAVE SALIR;
 	END IF;
 
