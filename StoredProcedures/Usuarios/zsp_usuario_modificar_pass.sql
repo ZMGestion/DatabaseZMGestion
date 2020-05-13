@@ -10,7 +10,7 @@ SALIR:BEGIN
     */
     DECLARE pMensaje text;
 
-    DECLARE pUsuariosEjecuta, pUsuariosActual, pUsuariosNuevo JSON;
+    DECLARE pUsuariosEjecuta, pUsuariosActual, pUsuariosNuevo, pRespuesta JSON;
 
     DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pToken varchar(256);
@@ -19,7 +19,7 @@ SALIR:BEGIN
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERROR_TRANSACCION' Mensaje;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
 	END;
 
@@ -55,11 +55,41 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
     
-    UPDATE  Usuarios 
-    SET Password = pPasswordNueva
-    WHERE IdUsuario = pIdUsuarioEjecuta;
-    
-    SELECT f_generarRespuesta(NULL, NULL) pOut;
+
+    START TRANSACTION;  
+        UPDATE  Usuarios 
+        SET Password = pPasswordNueva
+        WHERE IdUsuario = pIdUsuarioEjecuta;
+
+        SET pRespuesta = (
+            SELECT CAST(
+                    COALESCE(
+                        JSON_OBJECT(
+                            'IdUsuario', IdUsuario,
+                            'IdRol', IdRol,
+                            'IdUbicacion', IdUbicacion,
+                            'IdTipoDocumento', IdTipoDocumento,
+                            'Documento', Documento,
+                            'Nombres', Nombres,
+                            'Apellidos', Apellidos,
+                            'EstadoCivil', EstadoCivil,
+                            'Telefono', Telefono,
+                            'Email', Email,
+                            'CantidadHijos', CantidadHijos,
+                            'Usuario', Usuario,
+                            'FechaUltIntento', FechaUltIntento,
+                            'FechaNacimiento', FechaNacimiento,
+                            'FechaInicio', FechaInicio,
+                            'FechaAlta', FechaAlta,
+                            'FechaBaja', FechaBaja,
+                            'Estado', Estado
+                        )
+                    ,'') AS JSON)
+            FROM	Usuarios
+            WHERE	IdUsuario = pIdUsuario
+        );
+		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pRespuesta)) AS pOut;
+    COMMIT;
 END $$
 DELIMITER ;
 
