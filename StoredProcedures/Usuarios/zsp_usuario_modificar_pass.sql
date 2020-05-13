@@ -19,6 +19,7 @@ SALIR:BEGIN
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
+        SHOW ERRORS;
         SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
 	END;
@@ -86,7 +87,7 @@ SALIR:BEGIN
                         )
                     ,'') AS JSON)
             FROM	Usuarios
-            WHERE	IdUsuario = pIdUsuario
+            WHERE	IdUsuario = pIdUsuarioEjecuta
         );
 		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pRespuesta)) AS pOut;
     COMMIT;

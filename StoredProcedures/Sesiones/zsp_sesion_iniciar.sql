@@ -14,7 +14,7 @@ SALIR: BEGIN
     DECLARE pPass VARCHAR(255);
     DECLARE pUsuario VARCHAR(40);
     DECLARE pEmail VARCHAR(120);
-    DECLARE pToken VARCHAR(120);
+    DECLARE pToken VARCHAR(256);
 
     SET pUsuarios = pIn ->> '$.Usuarios';
     SET pToken = pUsuarios ->> '$.Token'; 
