@@ -4,70 +4,71 @@
 -- Project :      modeloRelacional.DM1
 -- Author :       Bachs
 --
--- Date Created : Monday, May 04, 2020 00:30:17
+-- Date Created : Sunday, May 17, 2020 20:34:49
 -- Target DBMS : MySQL 5.x
 --
+
 
 CREATE DATABASE IF NOT EXISTS 'ZMGestion';
 USE 'ZMGestion';
 
 SET FOREIGN_KEY_CHECKS = 0; 
 
-DROP TABLE CategoriasProducto
+DROP TABLE IF EXISTS CategoriasProducto
 ;
-DROP TABLE Ciudades
+DROP TABLE IF EXISTS Ciudades
 ;
-DROP TABLE Clientes
+DROP TABLE IF EXISTS Clientes
 ;
-DROP TABLE Comprobantes
+DROP TABLE IF EXISTS Comprobantes
 ;
-DROP TABLE Domicilios
+DROP TABLE IF EXISTS Domicilios
 ;
-DROP TABLE Empresa
+DROP TABLE IF EXISTS Empresa
 ;
-DROP TABLE GruposProducto
+DROP TABLE IF EXISTS GruposProducto
 ;
-DROP TABLE LineasProducto
+DROP TABLE IF EXISTS LineasProducto
 ;
-DROP TABLE Lustres
+DROP TABLE IF EXISTS Lustres
 ;
-DROP TABLE Observaciones
+DROP TABLE IF EXISTS Observaciones
 ;
-DROP TABLE OrdenesProduccion
+DROP TABLE IF EXISTS OrdenesProduccion
 ;
-DROP TABLE Paises
+DROP TABLE IF EXISTS Paises
 ;
-DROP TABLE Permisos
+DROP TABLE IF EXISTS Permisos
 ;
-DROP TABLE PermisosRol
+DROP TABLE IF EXISTS PermisosRol
 ;
-DROP TABLE Precios
+DROP TABLE IF EXISTS Precios
 ;
-DROP TABLE Presupuestos
+DROP TABLE IF EXISTS Presupuestos
 ;
-DROP TABLE Productos
+DROP TABLE IF EXISTS Productos
 ;
-DROP TABLE ProductosFinales
+DROP TABLE IF EXISTS ProductosFinales
 ;
-DROP TABLE Provincias
+DROP TABLE IF EXISTS Provincias
 ;
-DROP TABLE Remitos
+DROP TABLE IF EXISTS Remitos
 ;
-DROP TABLE Roles
+DROP TABLE IF EXISTS Roles
 ;
-DROP TABLE Tareas
+DROP TABLE IF EXISTS Tareas
 ;
-DROP TABLE Telas
+DROP TABLE IF EXISTS Telas
 ;
-DROP TABLE TiposDocumento
+DROP TABLE IF EXISTS TiposDocumento
 ;
-DROP TABLE TiposProducto
+DROP TABLE IF EXISTS TiposProducto
 ;
-DROP TABLE Ubicaciones
+DROP TABLE IF EXISTS Ubicaciones
 ;
-DROP TABLE Usuarios
+DROP TABLE IF EXISTS Usuarios
 ;
-DROP TABLE Ventas
+DROP TABLE IF EXISTS Ventas
 ;
 -- 
 -- TABLE: CategoriasProducto 
@@ -106,6 +107,7 @@ CREATE TABLE Clientes(
     IdTipoDocumento    TINYINT         NOT NULL,
     Documento          VARCHAR(15)     NOT NULL,
     Tipo               CHAR(1)         NOT NULL,
+    FechaNacimiento    DATE            NOT NULL,
     Nombres            VARCHAR(40),
     Apellidos          VARCHAR(40),
     RazonSocial        VARCHAR(60),
@@ -561,7 +563,7 @@ CREATE UNIQUE INDEX UI_IdCiudad ON Ciudades(IdCiudad)
 -- INDEX: Ref1615 
 --
 
-CREATE INDEX Ref1615 ON Ciudades(IdProvincia, IdPais)
+CREATE INDEX Ref1615 ON Ciudades(IdPais, IdProvincia)
 ;
 -- 
 -- INDEX: UI_Email 
@@ -609,7 +611,7 @@ CREATE INDEX Ref286 ON Comprobantes(IdUsuario)
 -- INDEX: Ref1716 
 --
 
-CREATE INDEX Ref1716 ON Domicilios(IdPais, IdProvincia, IdCiudad)
+CREATE INDEX Ref1716 ON Domicilios(IdProvincia, IdCiudad, IdPais)
 ;
 -- 
 -- INDEX: Ref1117 
@@ -696,16 +698,16 @@ CREATE INDEX Ref74 ON PermisosRol(IdPermiso)
 CREATE INDEX Ref55 ON PermisosRol(IdRol)
 ;
 -- 
--- INDEX: Ref1119 
---
-
-CREATE INDEX Ref1119 ON Presupuestos(IdCliente)
-;
--- 
 -- INDEX: Ref3238 
 --
 
 CREATE INDEX Ref3238 ON Presupuestos(IdVenta)
+;
+-- 
+-- INDEX: Ref1119 
+--
+
+CREATE INDEX Ref1119 ON Presupuestos(IdCliente)
 ;
 -- 
 -- INDEX: Ref271 
@@ -726,12 +728,6 @@ CREATE INDEX Ref2781 ON Presupuestos(IdUbicacion)
 CREATE UNIQUE INDEX UI_ProductoIdCategoriaProductoIdGrupoProducto ON Productos(Producto, IdCategoriaProducto, IdGrupoProducto)
 ;
 -- 
--- INDEX: Ref4280 
---
-
-CREATE INDEX Ref4280 ON Productos(IdTipoProducto)
-;
--- 
 -- INDEX: Ref3032 
 --
 
@@ -742,6 +738,12 @@ CREATE INDEX Ref3032 ON Productos(IdCategoriaProducto)
 --
 
 CREATE INDEX Ref3133 ON Productos(IdGrupoProducto)
+;
+-- 
+-- INDEX: Ref4280 
+--
+
+CREATE INDEX Ref4280 ON Productos(IdTipoProducto)
 ;
 -- 
 -- INDEX: UI_IdProducto_IdTela_IdLustre 
@@ -894,16 +896,16 @@ CREATE INDEX IX_NombresApellidos ON Usuarios(Nombres, Apellidos)
 CREATE INDEX Ref52 ON Usuarios(IdRol)
 ;
 -- 
--- INDEX: Ref1210 
---
-
-CREATE INDEX Ref1210 ON Usuarios(IdTipoDocumento)
-;
--- 
 -- INDEX: Ref2782 
 --
 
 CREATE INDEX Ref2782 ON Usuarios(IdUbicacion)
+;
+-- 
+-- INDEX: Ref1210 
+--
+
+CREATE INDEX Ref1210 ON Usuarios(IdTipoDocumento)
 ;
 -- 
 -- INDEX: Ref1139 
@@ -1048,14 +1050,14 @@ ALTER TABLE PermisosRol ADD CONSTRAINT RefRoles5
 -- TABLE: Presupuestos 
 --
 
-ALTER TABLE Presupuestos ADD CONSTRAINT RefClientes19 
-    FOREIGN KEY (IdCliente)
-    REFERENCES Clientes(IdCliente)
-;
-
 ALTER TABLE Presupuestos ADD CONSTRAINT RefVentas38 
     FOREIGN KEY (IdVenta)
     REFERENCES Ventas(IdVenta)
+;
+
+ALTER TABLE Presupuestos ADD CONSTRAINT RefClientes19 
+    FOREIGN KEY (IdCliente)
+    REFERENCES Clientes(IdCliente)
 ;
 
 ALTER TABLE Presupuestos ADD CONSTRAINT RefUsuarios71 
@@ -1073,11 +1075,6 @@ ALTER TABLE Presupuestos ADD CONSTRAINT RefUbicaciones81
 -- TABLE: Productos 
 --
 
-ALTER TABLE Productos ADD CONSTRAINT RefTiposProducto80 
-    FOREIGN KEY (IdTipoProducto)
-    REFERENCES TiposProducto(IdTipoProducto)
-;
-
 ALTER TABLE Productos ADD CONSTRAINT RefCategoriasProducto32 
     FOREIGN KEY (IdCategoriaProducto)
     REFERENCES CategoriasProducto(IdCategoriaProducto)
@@ -1086,6 +1083,11 @@ ALTER TABLE Productos ADD CONSTRAINT RefCategoriasProducto32
 ALTER TABLE Productos ADD CONSTRAINT RefGruposProducto33 
     FOREIGN KEY (IdGrupoProducto)
     REFERENCES GruposProducto(IdGrupoProducto)
+;
+
+ALTER TABLE Productos ADD CONSTRAINT RefTiposProducto80 
+    FOREIGN KEY (IdTipoProducto)
+    REFERENCES TiposProducto(IdTipoProducto)
 ;
 
 
@@ -1183,14 +1185,14 @@ ALTER TABLE Usuarios ADD CONSTRAINT RefRoles2
     REFERENCES Roles(IdRol)
 ;
 
-ALTER TABLE Usuarios ADD CONSTRAINT RefTiposDocumento10 
-    FOREIGN KEY (IdTipoDocumento)
-    REFERENCES TiposDocumento(IdTipoDocumento)
-;
-
 ALTER TABLE Usuarios ADD CONSTRAINT RefUbicaciones82 
     FOREIGN KEY (IdUbicacion)
     REFERENCES Ubicaciones(IdUbicacion)
+;
+
+ALTER TABLE Usuarios ADD CONSTRAINT RefTiposDocumento10 
+    FOREIGN KEY (IdTipoDocumento)
+    REFERENCES TiposDocumento(IdTipoDocumento)
 ;
 
 
@@ -1218,4 +1220,4 @@ ALTER TABLE Ventas ADD CONSTRAINT RefUsuarios48
     REFERENCES Usuarios(IdUsuario)
 ;
 
-SET FOREIGN_KEY_CHECKS = 1; 
+
