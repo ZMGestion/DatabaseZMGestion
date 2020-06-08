@@ -92,7 +92,7 @@ SALIR:BEGIN
                 END IF;       
             ELSE
                 SELECT f_generarRespuesta("ERROR_EXISTE_DOMICILIO", NULL) pOut;
-                ROLLBACK;
+                LEAVE SALIR;
                  
             END IF;
         ELSE
