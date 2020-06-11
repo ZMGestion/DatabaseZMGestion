@@ -38,7 +38,7 @@ INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedim
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (17, 'Dar de alta ubicacion', 'Permite a un usuario dar de alta una ubicación que fue dada de Baja.', 'zsp_ubicacion_dar_alta');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (18, 'Dar de baja ubicacion', 'Permite a un usuario dar de baja una ubicacion que esta en estado Alta.', 'zsp_ubicacion_dar_baja');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (19, 'Modificar ubicacion', 'Permite a un usuario modificar una ubicación existente.', 'zsp_ubicacion_modificar');
-
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (20, 'Borrar ubicacion', 'Permite a un usuario borrar una ubicación existente', 'zsp_ubicacion_borrar');
 /* Carga inicial PermisosRol Administradores */
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 1);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 2);
@@ -59,6 +59,7 @@ INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 16);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 17);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 18);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 19);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 20);
 
 /* Carga inicial PermisosRol Vendedores */
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (2, 11);
