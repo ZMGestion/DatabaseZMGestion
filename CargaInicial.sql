@@ -31,6 +31,13 @@ INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedim
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (10, 'Restablecer pass', 'Permite a un usuario restablecer la contraseña de otro usuario. ', 'zsp_usuario_restablecer_pass');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (11, 'Modificar pass', 'Permite a un usuario cambiar su contraseña ingresando la contraseña actual.', 'zsp_usuario_modificar_pass');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (12, 'Cerrar sesion', 'Permite a un usuario cerrar la sesión de otro usuario.', 'zsp_sesion_cerrar');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (13, 'Dame Usuario', 'Permite a un usuario instanciar a otro por Id', 'zsp_usuario_dame');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (14, 'Crear Domicilio', 'Permite crear un domicilio.', 'zsp_domicilio_crear');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (15, 'Borrar Domicilio', 'Permite un usuario borrar un domicilio.', 'zsp_domicilio_borrar');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (16, 'Crear Ubicacion', 'Permite a un usuario crear una ubicacion', 'zsp_ubicacion_crear');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (17, 'Dar de alta ubicacion', 'Permite a un usuario dar de alta una ubicación que fue dada de Baja.', 'zsp_ubicacion_dar_alta');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (18, 'Dar de baja ubicacion', 'Permite a un usuario dar de baja una ubicacion que esta en estado Alta.', 'zsp_ubicacion_dar_baja');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (19, 'Modificar ubicacion', 'Permite a un usuario modificar una ubicación existente.', 'zsp_ubicacion_modificar');
 
 /* Carga inicial PermisosRol Administradores */
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 1);
@@ -45,9 +52,18 @@ INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 9);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 10);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 11);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 12);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 13);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 14);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 15);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 16);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 17);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 18);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 19);
 
 /* Carga inicial PermisosRol Vendedores */
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (2, 11);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (2, 14);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (2, 15);
 
 /* Carga inicial PermisosRol Fabricantes */
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (3, 11);
@@ -62,37 +78,33 @@ INSERT INTO ZMGestion.Empresa (`IdParametro`, `Parametro`, `Descripcion`, `Valor
 /* -------------------------------- RESTANTE ----------------------------- */
 
 /*Carga inicial TiposDocumento*/
-INSERT INTO ZMGestion.TiposDocumento VALUES (1, 'DNI', 'Documento Nacional de Identidad');
-INSERT INTO ZMGestion.TiposDocumento VALUES (2, 'Pasaporte', 'Pasaporte');
-INSERT INTO ZMGestion.TiposDocumento VALUES (3, 'CUIT', 'Clave Única de Identificación Tributaria');
-INSERT INTO ZMGestion.TiposDocumento VALUES (4, 'CUIL', 'Clave Única de Identificación Laboral');
-
+INSERT INTO `TiposDocumento` (`IdTipoDocumento`, `TipoDocumento`, `Descripcion`) VALUES (1, 'DNI', 'Documento Nacional de Identidad');
+INSERT INTO `TiposDocumento` (`IdTipoDocumento`, `TipoDocumento`, `Descripcion`) VALUES (2, 'Pasaporte', 'Pasaporte');
+INSERT INTO `TiposDocumento` (`IdTipoDocumento`, `TipoDocumento`, `Descripcion`) VALUES (3, 'CUIT', 'Clave Única de Identificación Tributaria');
+INSERT INTO `TiposDocumento` (`IdTipoDocumento`, `TipoDocumento`, `Descripcion`) VALUES (4, 'CUIL', 'Clave Única de Identificación Laboral');
 
 /* Carga inicial Países */
 INSERT INTO Paises VALUES ('AR', 'Argentina');
-
 
 /* Carga inicial Provincias */
 INSERT INTO Provincias VALUES (1, 'AR',  'Tucumán');
 INSERT INTO Provincias VALUES (2, 'AR', 'Salta');
 
-
 /* Carga inicial Ciudades */
 INSERT INTO Ciudades VALUES (1, 1, 'AR', 'San Miguel de Tucumán');
 INSERT INTO Ciudades VALUES (2, 2, 'AR', 'Salta');
 
-
 /* Carga inicial Domicilios */
-INSERT INTO Domicilios VALUES (1, 1, 1, 'AR', NULL,  'Av. Manuel Belgrano 1456', '4000', now(), 'Domicilio de la casa central');
-INSERT INTO Domicilios VALUES (2, 1, 1, 'AR', NULL,  'Ildefonso de Muñecas 374', '4000', now(), 'Domicilio sucursal Muñecas');
-INSERT INTO Domicilios VALUES (3, 2, 2, 'AR', NULL,  'España 109', '4400', now(), 'Domicilio sucursal Salta');
-
+INSERT INTO Domicilios VALUES (1, 1, 1, 'AR', 'Av. Manuel Belgrano 1456', '4000', now(), 'Domicilio de la casa central');
+INSERT INTO Domicilios VALUES (2, 1, 1, 'AR', 'Ildefonso de Muñecas 374', '4000', now(), 'Domicilio sucursal Muñecas');
+INSERT INTO Domicilios VALUES (3, 2, 2, 'AR', 'España 109', '4400', now(), 'Domicilio sucursal Salta');
 
 /* Carga inicial Ubicaciones */
 INSERT INTO Ubicaciones VALUES (1,1, 'Casa Central Tucumán', now(), NULL, '', 'A');
 INSERT INTO Ubicaciones VALUES (2,2, 'Sucursal Muñecas', now(), NULL, '', 'A');
 INSERT INTO Ubicaciones VALUES (3,3, 'Sucursal Salta', now(), NULL, '', 'A');
 
-
 /* Carga inicial Usuarios */
-INSERT INTO Usuarios VALUES (1,1,1,1,'','Adam el super admin', '','C', '+54-(381)4321719', 'zimmermanmueblesgestion@gmail.com',2,'adam','Adam123','TOKEN', NULL, 0, now(), now(), now(), NULL, 'A')
+INSERT INTO Usuarios (`IdUsuario`, `IdRol`, `IdUbicacion`, `IdTipoDocumento`, `Documento`, `Nombres`, `Apellidos`, `EstadoCivil`, `Telefono`, `Email`, `CantidadHijos`, `Usuario`, `Password`, `Token`, `FechaNacimiento`, `Intentos`, `FechaInicio`, `FechaAlta`, `Estado`) VALUES (1,1,1,1,'00000001','Adam', 'Super Admin','C', '+54 381 4321719', 'zimmermanmueblesgestion@gmail.com',2,'adam','Adam1234','TOKEN', '1950-01-01', 0, '2020-01-01', now(), 'A');
+INSERT INTO Usuarios (`IdUsuario`, `IdRol`, `IdUbicacion`, `IdTipoDocumento`, `Documento`, `Nombres`, `Apellidos`, `EstadoCivil`, `Telefono`, `Email`, `CantidadHijos`, `Usuario`, `Password`, `Token`, `FechaNacimiento`, `Intentos`, `FechaInicio`, `FechaAlta`, `Estado`) VALUES (2,1,1,1,'39477073','Nicolás', 'Bachs','S', '+54 381 4491954', 'nicolas.bachs@gmail.com',0,'nbachs','081f2c59f57f53a74e651663f451ae2e8c711d4c0f6550b20b3bea1e2725afbe','TOKENBACHS', '1995-12-27', 0, '2020-01-01', now(), 'A');
+INSERT INTO Usuarios (`IdUsuario`, `IdRol`, `IdUbicacion`, `IdTipoDocumento`, `Documento`, `Nombres`, `Apellidos`, `EstadoCivil`, `Telefono`, `Email`, `CantidadHijos`, `Usuario`, `Password`, `Token`, `FechaNacimiento`, `Intentos`, `FechaInicio`, `FechaAlta`, `Estado`) VALUES (3,1,1,1,'41144069','Loik', 'Choua','S', '+54 381 5483777', 'loikchoua4@gmail.com',0,'lchoua','7a2ce2c44232f375fdc5bb77fa2b0163fe3231563db69cbab1bf0e62734228f0','TOKENLOIK', '1998-05-27', 0, '2020-01-01', now(), 'A');
