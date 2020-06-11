@@ -17,7 +17,6 @@ SALIR:BEGIN
     DECLARE pIdPais char(2);
     DECLARE pDomicilio varchar(120);
     DECLARE pCodigoPostal varchar(10);
-    DECLARE pFechaAlta datetime;
     DECLARE pObservaciones varchar(255);
 
     -- Cliente
@@ -28,7 +27,8 @@ SALIR:BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
-        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        SET pOut = f_generarRespuesta("ERROR_TRANSACCION", NULL);
+        SET pIdDomicilio = NULL;
         ROLLBACK;
 	END;
 
@@ -39,42 +39,46 @@ SALIR:BEGIN
     SET pIdPais = pDomicilios ->> "$.IdPais";
     SET pDomicilio = pDomicilios ->> "$.Domicilio";
     SET pCodigoPostal = pDomicilios ->> "$.CodigoPostal";
-    SET pFechaAlta = pDomicilios ->> "$.FechaAlta";
     SET pObservaciones = pDomicilios ->> "$.Observaciones";
 
     -- Extraigo datos del Cliente
     SET pClientes = pIn ->> "$.Clientes";
-    IF (pClientes IS NOT NULL) THEN
-        SET pIdCliente = pClientes ->> "$.IdCliente";
-        IF (pIdCliente IS NOT NULL AND NOT EXISTS (SELECT IdCliente FROM Clientes WHERE IdCliente = pIdCliente)) THEN
-            SELECT f_generarRespuesta("ERROR_NOEXISTE_CLIENTE", NULL) INTO pOut;
-            LEAVE SALIR;
-        END IF;
+    SET pIdCliente = pClientes ->> "$.IdCliente";
+
+    IF (pIdCliente IS NOT NULL AND NOT EXISTS (SELECT IdCliente FROM Clientes WHERE IdCliente = pIdCliente)) THEN
+        SET pOut = f_generarRespuesta("ERROR_NOEXISTE_CLIENTE", NULL);
+        SET pIdDomicilio = NULL;
+        LEAVE SALIR;
     END IF;
 
-
     IF (pIdPais IS NULL OR NOT EXISTS (SELECT IdPais FROM Paises WHERE IdPais = pIdPais)) THEN
-        SELECT f_generarRespuesta("ERROR_NOEXISTE_PAIS", NULL) INTO pOut;
+        SET pOut = f_generarRespuesta("ERROR_NOEXISTE_PAIS", NULL);
+        SET pIdDomicilio = NULL;
         LEAVE SALIR;
     END IF;
 
     IF (pIdProvincia IS NULL OR NOT EXISTS (SELECT IdProvincia FROM Provincias WHERE IdProvincia = pIdProvincia AND IdPais = pIdPais)) THEN
-        SELECT f_generarRespuesta("ERROR_NOEXISTE_PROVINCIA", NULL) INTO pOut;
+        SET pOut = f_generarRespuesta("ERROR_NOEXISTE_PROVINCIA", NULL);
+        SET pIdDomicilio = NULL;
         LEAVE SALIR;
     END IF;
 
     IF (pIdCiudad IS NULL OR NOT EXISTS (SELECT IdCiudad FROM Ciudades WHERE IdCiudad = pIdCiudad AND IdProvincia = pIdProvincia AND IdPais = pIdPais)) THEN
-        SELECT f_generarRespuesta("ERROR_NOEXISTE_CIUDAD", NULL) INTO pOut;
+        SET pOut = f_generarRespuesta("ERROR_NOEXISTE_CIUDAD", NULL);
+        SET pIdDomicilio = NULL;
         LEAVE SALIR;
     END IF;
 
     IF (pCodigoPostal IS NULL) THEN
-        SELECT f_generarRespuesta("ERROR_INGRESAR_CP", NULL) INTO pOut;
+        SET pOut = f_generarRespuesta("ERROR_INGRESAR_CP", NULL);
+        SET pIdDomicilio = NULL;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad) THEN
-        SELECT f_generarRespuesta("ERROR_EXISTE_UBICACION_CIUDAD", NULL) INTO pOut;
+        SET pOut = f_generarRespuesta("ERROR_EXISTE_UBICACION_CIUDAD", NULL);
+        SET pIdDomicilio = NULL;
+        LEAVE SALIR;
     END IF;
 
 
@@ -85,10 +89,10 @@ SALIR:BEGIN
             IF (pIdCliente IS NOT NULL) THEN
                 IF NOT EXISTS (SELECT IdDomicilio FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente = pIdCliente) THEN
                     INSERT INTO DomiciliosCliente VALUES (pIdDomicilio, pIdCliente, NOW());
+                    SET pOut = NULL;
                 END IF;       
             ELSE
-                SELECT f_generarRespuesta("ERROR_EXISTE_DOMICILIO", NULL) pOut;
-                LEAVE SALIR;
+                SET pOut = f_generarRespuesta("ERROR_EXISTE_DOMICILIO", NULL);
                  
             END IF;
         -- Si el domicilio no existe lo crea y lo asocia al cliente en caso de ser necesario
@@ -98,6 +102,7 @@ SALIR:BEGIN
             IF (pIdCliente IS NOT NULL) THEN
                 INSERT INTO DomiciliosCliente VALUES (pIdDomicilio, pIdCliente, NOW());
             END IF;
+            SET pOut = NULL;
         END IF;
 
     COMMIT;
