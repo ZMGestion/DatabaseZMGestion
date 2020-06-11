@@ -4,15 +4,14 @@
 -- Project :      modeloRelacional.DM1
 -- Author :       Bachs
 --
--- Date Created : Sunday, May 17, 2020 20:34:49
+-- Date Created : Monday, June 08, 2020 15:57:02
 -- Target DBMS : MySQL 5.x
 --
 
+CREATE DATABASE IF NOT EXISTS `ZMGestion`;
+USE `ZMGestion`;
 
-CREATE DATABASE IF NOT EXISTS 'ZMGestion';
-USE 'ZMGestion';
-
-SET FOREIGN_KEY_CHECKS = 0; 
+SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS CategoriasProducto
 ;
@@ -23,6 +22,8 @@ DROP TABLE IF EXISTS Clientes
 DROP TABLE IF EXISTS Comprobantes
 ;
 DROP TABLE IF EXISTS Domicilios
+;
+DROP TABLE IF EXISTS DomiciliosCliente
 ;
 DROP TABLE IF EXISTS Empresa
 ;
@@ -150,7 +151,6 @@ CREATE TABLE Domicilios(
     IdCiudad         INT             NOT NULL,
     IdProvincia      INT             NOT NULL,
     IdPais           CHAR(2)         NOT NULL,
-    IdCliente        INT,
     Domicilio        VARCHAR(120)    NOT NULL,
     CodigoPostal     VARCHAR(10)     NOT NULL,
     FechaAlta        DATETIME        NOT NULL,
@@ -158,6 +158,19 @@ CREATE TABLE Domicilios(
     PRIMARY KEY (IdDomicilio)
 )ENGINE=INNODB
 COMMENT='Tabla que almacena los domicilios.'
+;
+
+-- 
+-- TABLE: DomiciliosCliente 
+--
+
+CREATE TABLE DomiciliosCliente(
+    IdDomicilio    INT         NOT NULL,
+    IdCliente      INT         NOT NULL,
+    FechaAlta      DATETIME    NOT NULL,
+    PRIMARY KEY (IdDomicilio, IdCliente)
+)ENGINE=INNODB
+COMMENT=''
 ;
 
 -- 
@@ -171,7 +184,7 @@ CREATE TABLE Empresa(
     Descripcion    VARCHAR(255),
     PRIMARY KEY (IdParametro)
 )ENGINE=INNODB
-COMMENT='Tabla que almacena los par�metos de la empresa.'
+COMMENT='Tabla que almacena los parámetos de la empresa.'
 ;
 
 -- 
@@ -208,7 +221,7 @@ CREATE TABLE LineasProducto(
     Estado                  CHAR(1)           NOT NULL,
     PRIMARY KEY (IdLineaProducto)
 )ENGINE=INNODB
-COMMENT='Tabla que almacena las l�neas de producto.'
+COMMENT='Tabla que almacena las líneas de producto.'
 ;
 
 -- 
@@ -235,7 +248,7 @@ CREATE TABLE Observaciones(
     FechaAlta          DATETIME        NOT NULL,
     PRIMARY KEY (IdObservacion)
 )ENGINE=INNODB
-COMMENT='Tabla que almacena las observaciones de una l�nea de producto.'
+COMMENT='Tabla que almacena las observaciones de una línea de producto.'
 ;
 
 -- 
@@ -251,7 +264,7 @@ CREATE TABLE OrdenesProduccion(
     Estado               CHAR(1)         NOT NULL,
     PRIMARY KEY (IdOrdenProduccion)
 )ENGINE=INNODB
-COMMENT='Tablas que almacena las ordenes de producci�n.'
+COMMENT='Tablas que almacena las ordenes de producción.'
 ;
 
 -- 
@@ -263,7 +276,7 @@ CREATE TABLE Paises(
     Pais      VARCHAR(40),
     PRIMARY KEY (IdPais)
 )ENGINE=INNODB
-COMMENT='Tabla que almacena los pa�ses.'
+COMMENT='Tabla que almacena los países.'
 ;
 
 -- 
@@ -608,16 +621,28 @@ CREATE INDEX Ref3242 ON Comprobantes(IdVenta)
 CREATE INDEX Ref286 ON Comprobantes(IdUsuario)
 ;
 -- 
+-- INDEX: UI_Domicilio_IdCiudad 
+--
+
+CREATE UNIQUE INDEX UI_Domicilio_IdCiudad ON Domicilios(Domicilio, IdCiudad)
+;
+-- 
 -- INDEX: Ref1716 
 --
 
 CREATE INDEX Ref1716 ON Domicilios(IdProvincia, IdCiudad, IdPais)
 ;
 -- 
--- INDEX: Ref1117 
+-- INDEX: Ref1587 
 --
 
-CREATE INDEX Ref1117 ON Domicilios(IdCliente)
+CREATE INDEX Ref1587 ON DomiciliosCliente(IdDomicilio)
+;
+-- 
+-- INDEX: Ref1188 
+--
+
+CREATE INDEX Ref1188 ON DomiciliosCliente(IdCliente)
 ;
 -- 
 -- INDEX: UI_Parametro 
@@ -980,7 +1005,17 @@ ALTER TABLE Domicilios ADD CONSTRAINT RefCiudades16
     REFERENCES Ciudades(IdCiudad, IdProvincia, IdPais)
 ;
 
-ALTER TABLE Domicilios ADD CONSTRAINT RefClientes17 
+
+-- 
+-- TABLE: DomiciliosCliente 
+--
+
+ALTER TABLE DomiciliosCliente ADD CONSTRAINT RefDomicilios87 
+    FOREIGN KEY (IdDomicilio)
+    REFERENCES Domicilios(IdDomicilio)
+;
+
+ALTER TABLE DomiciliosCliente ADD CONSTRAINT RefClientes88 
     FOREIGN KEY (IdCliente)
     REFERENCES Clientes(IdCliente)
 ;
@@ -1220,4 +1255,4 @@ ALTER TABLE Ventas ADD CONSTRAINT RefUsuarios48
     REFERENCES Usuarios(IdUsuario)
 ;
 
-
+SET FOREIGN_KEY_CHECKS = 1;
