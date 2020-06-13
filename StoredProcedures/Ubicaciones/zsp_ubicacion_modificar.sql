@@ -50,6 +50,7 @@ SALIR:BEGIN
 
     -- Extraigo el domicilio del JSON
     SET pDomicilios = pIn ->> "$.Domicilios";
+    SET pIdDomicilio = pDomicilios ->> "$.IdDomicilio";
     SET pIdCiudad = pDomicilios ->> "$.IdCiudad";
     SET pIdProvincia = pDomicilios ->> "$.IdProvincia";
     SET pIdPais = pDomicilios ->> "$.IdPais";
@@ -98,14 +99,14 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF EXISTS (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad) THEN
+
+    IF EXISTS (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad AND IdDomicilio <> pIdDomicilio) THEN
         SELECT f_generarRespuesta("ERROR_EXISTE_UBICACION_CIUDAD", NULL) pOut;
     END IF;
 
 
 
     START TRANSACTION;
-        SET pIdDomicilio = (SELECT IdDomicilio FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion);
 
         
         UPDATE Ubicaciones

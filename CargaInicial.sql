@@ -35,7 +35,7 @@ INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedim
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (14, 'Crear Domicilio', 'Permite crear un domicilio.', 'zsp_domicilio_crear');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (15, 'Borrar Domicilio', 'Permite un usuario borrar un domicilio.', 'zsp_domicilio_borrar');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (16, 'Crear Ubicacion', 'Permite a un usuario crear una ubicacion', 'zsp_ubicacion_crear');
-INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (17, 'Dar de alta ubicacion', 'Permite a un usuario dar de alta una ubicación que fue dada de Baja.', 'zsp_ubicacion_dar_alta');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (17, 'Dar de alta ubicacion', 'Permite a un usuario dar de alta una ubicación que fue dada de baja.', 'zsp_ubicacion_dar_alta');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (18, 'Dar de baja ubicacion', 'Permite a un usuario dar de baja una ubicacion que esta en estado Alta.', 'zsp_ubicacion_dar_baja');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (19, 'Modificar ubicacion', 'Permite a un usuario modificar una ubicación existente.', 'zsp_ubicacion_modificar');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (20, 'Borrar ubicacion', 'Permite a un usuario borrar una ubicación existente', 'zsp_ubicacion_borrar');
