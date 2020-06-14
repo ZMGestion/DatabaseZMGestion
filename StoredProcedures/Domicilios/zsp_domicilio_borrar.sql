@@ -41,6 +41,10 @@ SALIR:BEGIN
     SET pDomicilios = pIn ->> "$.Domicilios";
     SET pIdDomicilio = pDomicilios ->> "$.IdDomicilio";
 
+    IF NOT EXISTS (SELECT IdDomicilio FROM Domicilios  WHERE IdDomicilio = pIdDomicilio) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_DOMICILIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
 
     IF EXISTS (SELECT d.IdDomicilio FROM Domicilios d INNER JOIN Ventas v USING (IdDomicilio) WHERE d.IdDomicilio = pIdDomicilio) THEN
         SELECT f_generarRespuesta("ERROR_BORRAR_DOMICILIO_VENTA", NULL) pOut;

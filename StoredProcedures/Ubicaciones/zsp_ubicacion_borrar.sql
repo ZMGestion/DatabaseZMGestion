@@ -21,7 +21,7 @@ SALIR: BEGIN
     -- Ubicacion a borrar
     DECLARE pUbicaciones JSON;
     DECLARE pIdUbicacion tinyint;
-
+    DECLARE pIdDomicilio int;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
@@ -61,14 +61,17 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF EXISTS (SELECT u.IdUsuario FROM Ubicaciones u INNER JOIN Usuarios us USING(IdUbicacion) WHERE u.IdUbicacion = pIdUbicacion) THEN
+    IF EXISTS (SELECT u.IdUbicacion FROM Ubicaciones u INNER JOIN Usuarios us USING(IdUbicacion) WHERE u.IdUbicacion = pIdUbicacion) THEN
         SELECT f_generarRespuesta('ERROR_BORRAR_UBICACION_USUARIO' , NULL)pOut;
         LEAVE SALIR;
     END IF;
 
-    
+START TRANSACTION;
+    SET pIdDomicilio = (SELECT IdDomicilio FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion);
 	DELETE FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion;
+    DELETE FROM Domicilios WHERE IdDomicilio = pIdDomicilio;
     SELECT f_generarRespuesta(NULL, NULL)pOut;
+COMMIT ;
 END $$
 DELIMITER ;
 
