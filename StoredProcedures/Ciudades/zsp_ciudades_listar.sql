@@ -7,16 +7,14 @@ SALIR: BEGIN
         Permite listar todas las ciudades de una provincia y un pais particular.
     */
 
-    DECLARE pPaises JSON;
+    DECLARE pProvincias JSON;
     DECLARE pIdPais char(2);
-    DECLARE pProvincia JSON;
     DECLARE pIdProvincia int;
     DECLARE pRespuesta JSON;
 
-    SET pPaises = pIn ->> "$.Paises";
-    SET pIdPais = pPaises ->> "$.IdPais";
-    SET pProvincia = pIn ->> "$.Provincias";
-    SET pIdProvincia = pProvincia ->> "$.IdProvincia";
+    SET pProvincias = pIn ->> "$.Provincias";
+    SET pIdPais = pProvincias ->> "$.IdPais";
+    SET pIdProvincia = pProvincias ->> "$.IdProvincia";
 
     SET pRespuesta = (SELECT JSON_ARRAYAGG(
         JSON_OBJECT(
