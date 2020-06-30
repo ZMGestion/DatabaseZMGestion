@@ -70,10 +70,13 @@ SALIR:BEGIN
             END IF;
         ELSE
             IF NOT EXISTS(SELECT IdDomicilio FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente <> pIdCliente) THEN
+                DELETE FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente = pIdCliente ;
                 DELETE FROM Domicilios WHERE IdDomicilio = pIdDomicilio;
+            ELSE
+                DELETE FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente = pIdCliente ;
             END IF;
             
-            DELETE FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente = pIdCliente ;
+            
         END IF;
 		SELECT f_generarRespuesta(NULL, NULL) AS pOut;
     COMMIT;
