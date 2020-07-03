@@ -1,11 +1,11 @@
-DROP PROCEDURE IF EXISTS `zsp_tela_modificar`;
+DROP PROCEDURE IF EXISTS `zsp_tela_dar_alta`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_tela_modificar`(pIn JSON)
-SALIR: BEGIN
+CREATE PROCEDURE `zsp_tela_dar_alta`(pIn JSON)
+SALIR:BEGIN
     /*
-        Procedimiento que permite modificar una tela. Control que no exista otra tela con el mismo nombre.
-        Devuelve un json con la tela y el precio en respuesta o el error en error.
+        Procedimiento que permite dar de alta una tela que se encontraba en estado "Baja". Controla que la tela exista
+        Devuelve un json con la tela en respuesta o el error en error.
     */
     -- Control de permisos
     DECLARE pUsuariosEjecuta JSON;
@@ -16,11 +16,6 @@ SALIR: BEGIN
     -- Tela a crear
     DECLARE pTelas JSON;
     DECLARE pIdTela smallint;
-    DECLARE pTela varchar(60);
-    DECLARE pObservaciones varchar(255);
-
-    -- Precio
-    DECLARE pIdPrecio int;
 
     -- Para la respuesta
     DECLARE pRespuesta JSON;
@@ -35,7 +30,7 @@ SALIR: BEGIN
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
 
-    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_tela_modificar', pIdUsuarioEjecuta, pMensaje);
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_tela_dar_alta', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
         SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
@@ -43,33 +38,23 @@ SALIR: BEGIN
     -- Extraigo atributos de Tela
     SET pTelas = pIn ->> "$.Telas";
     SET pIdTela = pTelas ->> "$.IdTela";
-    SET pTela = pTelas ->> "$.Tela";
-
-    IF pTela IS NULL OR pTela = '' THEN 
-        SELECT f_generarRespuesta("ERROR_INGRESAR_TELA", NULL) pOut;
-        LEAVE SALIR;
-    END IF;
 
     IF NOT EXISTS (SELECT IdTela FROM Telas WHERE IdTela = pIdTela) THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_TELA", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
-    IF (SELECT IdTela FROM Telas WHERE Tela = pTela AND IdTela <> pIdTela) THEN
-        SELECT f_generarRespuesta("ERROR_EXISTE_TELA", NULL) pOut;
-        LEAVE SALIR;
+    IF (SELECT Estado FROM Telas WHERE IdTela = pIdTela) = 'A' THEN
+        SELECT f_generarRespuesta("ERROR_TELA_ESTA_ALTA", NULL) pOut;
+        LEAVE SALIR; 
     END IF;
 
     START TRANSACTION;
-    
-    UPDATE Telas
-    SET Tela = pTela,
-        Observaciones = NULLIF(pObservaciones, '')
-    WHERE IdTela = pIdTela;
+        UPDATE Telas
+        SET Estado = 'A'
+        WHERE IdTela = pIdTela;
 
-    SELECT f_dameUltimoPrecio('T', pIdTela) INTO pIdPrecio;
-
-    SET pRespuesta = (
+            SET pRespuesta = (
 			SELECT CAST(
                 JSON_OBJECT(
                     "Telas",  JSON_OBJECT(
@@ -79,22 +64,16 @@ SALIR: BEGIN
                         'FechaBaja', t.FechaBaja,
                         'Observaciones', t.Observaciones,
                         'Estado', t.Estado
-                        ),
-                    "Precios", JSON_OBJECT(
-                        'IdPrecio', p.IdPrecio,
-                        'Precio', p.Precio,
-                        'FechaAlta', p.FechaAlta
-                    ) 
+                        )
                 )
              AS JSON)
 			FROM	Telas t
-            INNER JOIN Precios p ON (p.Tipo = 'T' AND t.IdTela = p.IdReferencia)
-			WHERE	t.IdTela = pIdTela AND p.IdPrecio = pIdPrecio
+			WHERE	t.IdTela = pIdTela
         );
 	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
 
     COMMIT;
+
 END $$
 DELIMITER ;
-

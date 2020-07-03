@@ -58,6 +58,11 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
+    IF NOT EXISTS (SELECT IdTela FROM Telas WHERE IdTela = pIdTela) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_TELA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
     SELECT f_dameUltimoPrecio('T', pIdTela) INTO pIdPrecio;
 
     IF pPrecio = (SELECT Precio FROM Precios WHERE IdPrecio = pIdPrecio) THEN
@@ -74,7 +79,7 @@ SALIR: BEGIN
     SET pRespuesta = (
 			SELECT CAST(
                 JSON_OBJECT(
-                    "Tela",  JSON_OBJECT(
+                    "Telas",  JSON_OBJECT(
                         'IdTela', t.IdTela,
                         'Tela', t.Tela,
                         'FechaAlta', t.FechaAlta,
@@ -98,15 +103,3 @@ SALIR: BEGIN
     COMMIT;
 END $$
 DELIMITER ;
-
-{
-    "UsuariosEjecuta":{
-        "Token":"TOKEN"
-    },
-    "Precios":{
-        "Precio":12.0
-    },
-    "Telas":{
-        "IdTela":1
-    }
-}

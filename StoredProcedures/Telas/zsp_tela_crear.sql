@@ -77,7 +77,7 @@ SALIR: BEGIN
     SET pRespuesta = (
 			SELECT CAST(
                 JSON_OBJECT(
-                    "Tela",  JSON_OBJECT(
+                    "Telas",  JSON_OBJECT(
                         'IdTela', t.IdTela,
                         'Tela', t.Tela,
                         'FechaAlta', t.FechaAlta,

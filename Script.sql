@@ -1,3 +1,30 @@
+DROP FUNCTION IF EXISTS `f_dameUltimoPrecio`;
+DELIMITER $$
+CREATE FUNCTION `f_dameUltimoPrecio`(pTipo char(1), pIdReferencia int) RETURNS int
+    READS SQL DATA
+BEGIN
+    DECLARE pIdPrecio int;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_ultimosPrecios;
+    DROP TEMPORARY TABLE IF EXISTS tmp_preciosTela;
+    
+    CREATE TEMPORARY TABLE tmp_preciosTela AS
+    SELECT IdReferencia, MAX(IdPrecio) latestId 
+    FROM Precios WHERE Tipo = pTipo GROUP BY IdReferencia;
+
+    CREATE TEMPORARY TABLE tmp_ultimosPrecios AS
+    SELECT pr.* 
+    FROM tmp_preciosTela tmp
+    INNER JOIN Precios pr ON (pr.IdReferencia = tmp.IdReferencia AND pr.IdPrecio = tmp.latestId);
+
+    SET pIdPrecio = (SELECT tmp.IdPrecio FROM tmp_ultimosPrecios tmp WHERE tmp.IdReferencia = pIdReferencia);
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_ultimosPrecios;
+    DROP TEMPORARY TABLE IF EXISTS tmp_preciosTela;
+
+    RETURN pIdPrecio;
+END $$
+DELIMITER ;
 DROP FUNCTION IF EXISTS `f_generarRespuesta`;
 DELIMITER $$
 CREATE FUNCTION `f_generarRespuesta`(pCodigoError varchar(255), pRespuesta JSON) RETURNS JSON
@@ -408,7 +435,7 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `zsp_usuario_borrar`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_borrar`(pToken varchar(256), pIdUsuario smallint)
+CREATE PROCEDURE `zsp_usuario_borrar`(pIn JSON)
 
 
 SALIR: BEGIN
@@ -416,72 +443,87 @@ SALIR: BEGIN
         Procedimiento que permite a un usuario borrar un usuario.
         Debe controlar que no haya creado un presupuesto, venta, orden de produccion, remito, comprobante, o que no se le 
         haya asignado o haya revisado alguna tarea. 
-        Devuelve 'OK' o el error en Mensaje.
+        Devuelve NULL en 'respuesta' o el codigo de error en 'error'.
     */
     DECLARE pMensaje text;
     DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pUsuarios JSON;
+    DECLARE pToken varchar(256);
+    DECLARE pIdUsuario smallint;
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SHOW ERRORS;
-		SELECT 'ERROR_TRANSACCION' Mensaje;
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
 	END;
 
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_borrar', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
-        SELECT pMensaje Mensaje;
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
 
+    SET pUsuarios = pIn ->> "$.Usuarios";
+    SET pIdUsuario = pUsuarios ->> "$.IdUsuario";
+
 	IF pIdUsuario = 1 THEN
-		SELECT 'ERROR_BORRAR_USUARIO_ADAM' Mensaje;
+		SELECT f_generarRespuesta('ERROR_BORRAR_USUARIO_ADAM', NULL)pOut;
 		LEAVE SALIR;
 	END IF;
 
+    IF NOT EXISTS (SELECT Usuario FROM Usuarios WHERE IdUsuario = pIdUsuario) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_USUARIO', NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Presupuestos p USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERROR_BORRAR_USUARIO_PRESUPUESTO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_BORRAR_USUARIO_PRESUPUESTO', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Ventas v USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERROR_BORRAR_USUARIO_VENTA' Mensaje;
+        SELECT f_generarRespuesta('ERROR_BORRAR_USUARIO_VENTA' , NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN OrdenesProduccion op USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERROR_BORRAR_USUARIO_OP' Mensaje;
+        SELECT f_generarRespuesta('ERROR_BORRAR_USUARIO_OP' , NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Comprobantes c USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERROR_BORRAR_USUARIO_COMPROBANTE' Mensaje;
+        SELECT f_generarRespuesta('ERROR_BORRAR_USUARIO_COMPROBANTE' , NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Remitos r USING(IdUsuario) WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERROR_BORRAR_USUARIO_REMITO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_BORRAR_USUARIO_REMITO' , NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Tareas t ON u.IdUsuario = t.IdUsuarioFabricante WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERROR_BORRAR_USUARIO_TAREA_F' Mensaje;
+        SELECT f_generarRespuesta('ERROR_BORRAR_USUARIO_TAREA_F' , NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT u.IdUsuario FROM Usuarios u INNER JOIN Tareas t ON u.IdUsuario = t.IdUsuarioRevisor WHERE u.IdUsuario = pIdUsuario) THEN
-        SELECT 'ERROR_BORRAR_USUARIO_TAREA_R' Mensaje;
+        SELECT f_generarRespuesta('ERROR_BORRAR_USUARIO_TAREA_R' , NULL)pOut;
         LEAVE SALIR;
     END IF;
     
 	DELETE FROM Usuarios WHERE IdUsuario = pIdUsuario;
-    SELECT 'OK' Mensaje;
+    SELECT f_generarRespuesta(NULL, NULL)pOut;
 END $$
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_usuario_crear`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_crear`(pToken varchar(256), pIdRol tinyint, pIdUbicacion tinyint,pIdTipoDocumento tinyint, pDocumento varchar(15), pNombres varchar(60), pApellidos varchar(60), pEstadoCivil char(1), pTelefono varchar(15),
-                                    pEmail varchar(120), pCantidadHijos tinyint, pUsuario varchar(40), pPassword varchar(255), pFechaNacimiento date, pFechaInicio date, OUT pIdUsuario smallint)
+CREATE PROCEDURE `zsp_usuario_crear`(pIn JSON)
 
 SALIR:BEGIN
     /*
@@ -491,112 +533,182 @@ SALIR:BEGIN
         Todos los campos son obligatorios.
         Devuelve un json con el usuario creado en respuesta o el codigo de error en error.
     */
-    DECLARE pIdUsuario smallint;
-    DECLARE pMensaje text;
+    DECLARE pUsuarios JSON;
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pRespuesta JSON;
     DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pMensaje text;
+    DECLARE pIdUsuario smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pIdRol tinyint;
+    DECLARE pIdUbicacion tinyint;
+    DECLARE pIdTipoDocumento tinyint;
+    DECLARE pDocumento varchar(15);
+    DECLARE pNombres varchar(40);
+    DECLARE pApellidos varchar(40);
+    DECLARE pEstadoCivil char(1);
+    DECLARE pTelefono varchar(15);
+    DECLARE pEmail varchar(120);
+    DECLARE pCantidadHijos tinyint;
+    DECLARE pUsuario varchar(40);
+    DECLARE pPassword varchar(255);
+    DECLARE pFechaNacimiento date;
+    DECLARE pFechaInicio date;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
-		SELECT 'ERROR_TRANSACCION' Mensaje;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
 	END;
 
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_crear', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
-        SELECT pMensaje Mensaje;
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
 
+    SET pUsuarios = pIn ->> "$.Usuarios";
+    SET pIdRol = pUsuarios ->> "$.IdRol";
+    SET pIdUbicacion = pUsuarios ->> "$.IdUbicacion";
+    SET pIdTipoDocumento = pUsuarios ->> "$.IdTipoDocumento";
+    SET pDocumento = pUsuarios ->> "$.Documento";
+    SET pNombres = pUsuarios ->> "$.Nombres";
+    SET pApellidos = pUsuarios ->> "$.Apellidos";
+    SET pEstadoCivil = pUsuarios ->> "$.EstadoCivil";
+    SET pIdRol = pUsuarios ->> "$.IdRol";
+    SET pTelefono = pUsuarios ->> "$.Telefono";
+    SET pEmail = pUsuarios ->> "$.Email";
+    SET pCantidadHijos = pUsuarios ->> "$.CantidadHijos";
+    SET pPassword = pUsuarios ->> "$.Password";
+    SET pUsuario = pUsuarios ->> "$.Usuario";
+    SET pFechaNacimiento = pUsuarios ->> "$.FechaNacimiento";
+    SET pFechaInicio = pUsuarios ->> "$.FechaInicio";
+
     IF (pIdRol IS NULL OR NOT EXISTS (SELECT IdRol FROM Roles WHERE IdRol = pIdRol)) THEN
-        SELECT 'ERROR_NOEXISTE_ROL' Mensaje;
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_ROL", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pIdUbicacion IS NULL OR NOT EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion)) THEN
-        SELECT 'ERROR_NOEXISTE_UBICACION' Mensaje;
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_UBICACION", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pIdTipoDocumento IS NULL OR NOT EXISTS (SELECT IdTipoDocumento FROM TiposDocumento WHERE IdTipoDocumento = pIdTipoDocumento)) THEN
-        SELECT 'ERROR_NOEXISTE_TIPODOC' Mensaje;
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_TIPODOC", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pDocumento IS NULL OR pDocumento = '') THEN
-        SELECT 'ERROR_INGRESAR_DOCUMENTO' Mensaje;
+        SELECT f_generarRespuesta("ERROR_INGRESAR_DOCUMENTO", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdTipoDocumento = pIdTipoDocumento AND Documento = pDocumento) THEN
-        SELECT 'ERROR_EXISTE_USUARIO_TIPODOC_DOC' Mensaje;
+        SELECT f_generarRespuesta("ERROR_EXISTE_USUARIO_TIPODOC_DOC", NULL) pOut;
         LEAVE SALIR;
     END IF;
     
     IF (pNombres IS NULL OR pNombres = '') THEN
-        SELECT 'ERROR_INGRESAR_NOMBRE' Mensaje;
+        SELECT f_generarRespuesta("ERROR_INGRESAR_NOMBRE", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pApellidos IS NULL OR pApellidos = '') THEN
-        SELECT 'ERROR_INGRESAR_APELLIDO' Mensaje;
+        SELECT f_generarRespuesta("ERROR_INGRESAR_APELLIDO", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pEstadoCivil NOT IN ('C', 'S', 'D')) THEN
-        SELECT 'ERROR_INVALIDO_ESTADOCIVIL' Mensaje;
+        SELECT f_generarRespuesta("ERROR_INVALIDO_ESTADOCIVIL", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pTelefono IS NULL OR pTelefono = '') THEN
-        SELECT 'ERROR_INGRESAR_TELEFONO' Mensaje;
+        SELECT f_generarRespuesta("ERROR_INGRESAR_TELEFONO", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pEmail IS NULL OR pEmail = '') THEN 
-        SELECT 'ERROR_INGRESAR_EMAIL' Mensaje;
+        SELECT f_generarRespuesta("ERROR_INGRESAR_EMAIL", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT Email FROM Usuarios WHERE Email = pEmail) THEN
-        SELECT 'ERROR_EXISTE_EMAIL' Mensaje;
+        SELECT f_generarRespuesta("ERROR_EXISTE_EMAIL", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pCantidadHijos IS NULL) THEN
-        SELECT 'ERROR_INGRESAR_CANTIDADHIJOS' Mensaje;
+        SELECT f_generarRespuesta("ERROR_INGRESAR_CANTIDADHIJOS", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pUsuario IS NULL THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_USUARIO", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (LENGTH(pUsuario) <> LENGTH(REPLACE(pUsuario,' ',''))) THEN
-        SELECT 'ERROR_ESPACIO_USUARIO' Mensaje;
+        SELECT f_generarRespuesta("ERROR_ESPACIO_USUARIO", NULL) pOut;
         LEAVE SALIR;
 	END IF;
 
     IF EXISTS(SELECT Usuario FROM Usuarios WHERE Usuario = pUsuario) THEN
-		SELECT 'ERROR_EXISTE_USUARIO' Mensaje;
+        SELECT f_generarRespuesta("ERROR_EXISTE_USUARIO", NULL) pOut;
 		LEAVE SALIR;
 	END IF;
 
     IF(pPassword IS NULL OR pPassword = '') THEN
-        SELECT 'ERROR_INGRESAR_PASSWORD' Mensaje;
+        SELECT f_generarRespuesta("ERROR_INGRESAR_PASSWORD", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF(pFechaNacimiento IS NULL OR pFechaNacimiento > NOW()) THEN
-        SELECT 'ERROR_FECHANACIMIENTO_ANTERIOR' Mensaje;
+        SELECT f_generarRespuesta("ERROR_FECHANACIMIENTO_ANTERIOR", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF(pFechaInicio IS NULL OR pFechaInicio > NOW()) THEN
-        SELECT 'ERROR_FECHAINICIO_ANTERIOR' Mensaje;
+        SELECT f_generarRespuesta("ERROR_FECHAINICIO_ANTERIOR", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     START TRANSACTION;
-        INSERT INTO Usuarios SELECT 0, pIdRol, pIdUbicacion, pIdTipoDocumento, pDocumento, pNombres, pApellidos, pEstadoCivil, pTelefono, pEmail, pCantidadHijos, pUsuario, pPassword, NULL, NULL, 0 ,pFechaNacimiento, pFechaInicio, NOW(), NULL,'A';
+        INSERT INTO Usuarios (IdUsuario,IdRol,IdUbicacion,IdTipoDocumento,Documento,Nombres,Apellidos,EstadoCivil,Telefono,Email,CantidadHijos,Usuario,Password,Token,FechaUltIntento,Intentos,FechaNacimiento,FechaInicio,FechaAlta,FechaBaja,Estado) VALUES (0, pIdRol, pIdUbicacion, pIdTipoDocumento, pDocumento, pNombres, pApellidos, pEstadoCivil, pTelefono, pEmail, pCantidadHijos, pUsuario, pPassword, NULL, NULL, 0 ,pFechaNacimiento, pFechaInicio, NOW(), NULL,'A');
         SET pIdUsuario = (SELECT IdUsuario FROM Usuarios WHERE Email = pEmail);
-        SELECT 'OK ' Mensaje;
+        SET pRespuesta = (
+        SELECT CAST(
+				COALESCE(
+					JSON_OBJECT(
+						'IdUsuario', IdUsuario,
+                        'IdRol', IdRol,
+                        'IdUbicacion', IdUbicacion,
+                        'IdTipoDocumento', IdTipoDocumento,
+                        'Documento', Documento,
+                        'Nombres', Nombres,
+                        'Apellidos', Apellidos,
+                        'EstadoCivil', EstadoCivil,
+                        'Telefono', Telefono,
+                        'Email', Email,
+                        'CantidadHijos', CantidadHijos,
+                        'Usuario', Usuario,
+                        'FechaUltIntento', FechaUltIntento,
+                        'FechaNacimiento', FechaNacimiento,
+                        'FechaInicio', FechaInicio,
+                        'FechaAlta', FechaAlta,
+                        'FechaBaja', FechaBaja,
+                        'Estado', Estado
+					)
+				,'') AS JSON)
+        FROM	Usuarios
+        WHERE	IdUsuario = pIdUsuario
+    );
+		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pRespuesta)) AS pOut;
     COMMIT;
 END $$
 DELIMITER ;
@@ -604,128 +716,295 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_usuario_dame`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_dame`(pIdUsuario smallint)
+CREATE PROCEDURE `zsp_usuario_dame`(pIn JSON)
 
-BEGIN
+SALIR: BEGIN
+    DECLARE pUsuarios, pUsuariosEjecuta JSON;
+    DECLARE pIdUsuario smallint;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pMensaje text;
+    DECLARE pRespuesta JSON;
+    DECLARE pToken varchar(256);
     /*
         Procedimiento que sirve para instanciar un usuario por id desde la base de datos.
     */
-	SELECT	*
-    FROM	Usuarios
-    WHERE	IdUsuario = pIdUsuario;
+
+    SET pUsuarios = pIn ->> '$.Usuarios';
+    SET pUsuariosEjecuta = pIn ->> '$.UsuariosEjecuta';
+    SET pToken = pUsuariosEjecuta ->> '$.Token';
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_dame', pIdUsuarioEjecuta, pMensaje);
+	IF pMensaje!='OK' THEN
+		SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+		LEAVE SALIR;
+	END IF;
+
+    SET pIdUsuario = pUsuarios ->> '$.IdUsuario';
+
+	SET pRespuesta = (
+        SELECT CAST(
+				COALESCE(
+					JSON_OBJECT(
+						'IdUsuario', IdUsuario,
+                        'IdRol', IdRol,
+                        'IdUbicacion', IdUbicacion,
+                        'IdTipoDocumento', IdTipoDocumento,
+                        'Documento', Documento,
+                        'Nombres', Nombres,
+                        'Apellidos', Apellidos,
+                        'EstadoCivil', EstadoCivil,
+                        'Telefono', Telefono,
+                        'Email', Email,
+                        'CantidadHijos', CantidadHijos,
+                        'Usuario', Usuario,
+                        'FechaUltIntento', FechaUltIntento,
+                        'FechaNacimiento', FechaNacimiento,
+                        'FechaInicio', FechaInicio,
+                        'FechaAlta', FechaAlta,
+                        'FechaBaja', FechaBaja,
+                        'Estado', Estado
+					)
+				,'') AS JSON)
+        FROM	Usuarios
+        WHERE	IdUsuario = pIdUsuario
+    );
+
+    SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pRespuesta)) pOut;
+
 END $$
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_usuario_dame_por_token`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_dame_por_token`(pToken varchar(256))
+CREATE PROCEDURE `zsp_usuario_dame_por_token`(pIn JSON)
 
-BEGIN
+SALIR: BEGIN
 
     /*
         Procedimiento que sirve para instanciar un usuario por token desde la base de datos.
     */	
-	SELECT	*
-    FROM	Usuarios
-    WHERE	Token = pToken;
+
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuario int;
+    DECLARE pRespuesta JSON;
+    DECLARE pToken varchar(256);
+    SET pUsuariosEjecuta = pIn ->> '$.UsuariosEjecuta';
+    SET pIdUsuario = pUsuariosEjecuta ->> '$.IdUsuario';
+    SET pToken = pUsuariosEjecuta ->> '$.Token';
+    
+    SET pRespuesta = (
+        SELECT CAST(
+				COALESCE(
+					JSON_OBJECT(
+						'IdUsuario', IdUsuario,
+                        'IdRol', IdRol,
+                        'IdUbicacion', IdUbicacion,
+                        'IdTipoDocumento', IdTipoDocumento,
+                        'Documento', Documento,
+                        'Nombres', Nombres,
+                        'Apellidos', Apellidos,
+                        'EstadoCivil', EstadoCivil,
+                        'Telefono', Telefono,
+                        'Email', Email,
+                        'CantidadHijos', CantidadHijos,
+                        'Usuario', Usuario,
+                        'FechaUltIntento', FechaUltIntento,
+                        'FechaNacimiento', FechaNacimiento,
+                        'FechaInicio', FechaInicio,
+                        'FechaAlta', FechaAlta,
+                        'FechaBaja', FechaBaja,
+                        'Estado', Estado
+					)
+				,'') AS JSON)
+        FROM	Usuarios
+        WHERE	Token = pToken
+    );
+
+    SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pRespuesta)) pOut;
 END $$
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_usuario_dar_alta`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_dar_alta`(pToken varchar(256), pIdUsuario smallint)
+CREATE PROCEDURE `zsp_usuario_dar_alta`(pIn JSON)
 SALIR: BEGIN
 	/*
         Permite cambiar el estado del Usuario a 'Alta' siempre y cuando no esté en estado 'Alta' ya.
-        Devuelve OK o el mensaje de error en Mensaje.
+        Devuelve el usuario en 'respuesta' o el codigo de error en 'error'.
 	*/
 	DECLARE pIdUsuarioEjecuta smallint;
 	DECLARE pMensaje text;
+    DECLARE pUsuarios JSON;
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pToken varchar(256);
+    DECLARE pIdUsuario smallint;
+    DECLARE pRespuesta JSON;
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERROR_TRANSACCION' Mensaje;
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
 	END;
 
-	CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_dar_alta', pIdUsuarioEjecuta, pMensaje);
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_dar_alta', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
-        SELECT pMensaje Mensaje;
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
 
+    SET pUsuarios = pIn ->> "$.Usuarios";
+    SET pIdUsuario = pUsuarios ->> "$.IdUsuario";
+
+
     IF pIdUsuario IS NULL THEN
-		SELECT 'ERROR_INGRESAR_USUARIO' Mensaje;
+		SELECT f_generarRespuesta('ERROR_INGRESAR_USUARIO', NULL)pOut;
         LEAVE SALIR;
 	END IF;
 
-    IF NOT EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'B') THEN
-		SELECT 'ERROR_USUARIO_ESTA_ALTA' Mensaje;
+    SET @pEstado = (SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario);
+
+    IF (@pEstado IS NULL) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_USUARIO', NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (@pEstado = 'A') THEN
+		SELECT f_generarRespuesta('ERROR_USUARIO_ESTA_ALTA', NULL)pOut;
         LEAVE SALIR;
 	END IF;
 
-    UPDATE Usuarios
-    SET Estado = 'A',
-        Intentos = 0
-    WHERE IdUsuario = pIdUsuario;
-    SELECT'OK' Mensaje;
+    START TRANSACTION;
+
+        UPDATE Usuarios
+        SET Estado = 'A',
+            Intentos = 0
+        WHERE IdUsuario = pIdUsuario;
+
+        SET pRespuesta = (
+            SELECT CAST(
+                    COALESCE(
+                        JSON_OBJECT(
+                            'IdUsuario', IdUsuario,
+                            'IdRol', IdRol,
+                            'IdUbicacion', IdUbicacion,
+                            'IdTipoDocumento', IdTipoDocumento,
+                            'Documento', Documento,
+                            'Nombres', Nombres,
+                            'Apellidos', Apellidos,
+                            'EstadoCivil', EstadoCivil,
+                            'Telefono', Telefono,
+                            'Email', Email,
+                            'CantidadHijos', CantidadHijos,
+                            'Usuario', Usuario,
+                            'FechaUltIntento', FechaUltIntento,
+                            'FechaNacimiento', FechaNacimiento,
+                            'FechaInicio', FechaInicio,
+                            'FechaAlta', FechaAlta,
+                            'FechaBaja', FechaBaja,
+                            'Estado', Estado
+                        )
+                    ,'') AS JSON)
+            FROM	Usuarios
+            WHERE	IdUsuario = pIdUsuario
+        );
+        SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pRespuesta)) AS pOut;
+    COMMIT;
 
 END $$
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_usuario_dar_baja`;
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_dar_baja`(pToken varchar(256), pIdUsuario smallint)
+CREATE PROCEDURE `zsp_usuario_dar_baja`(pIn JSON)
 
 SALIR: BEGIN
     /*
         Permite cambiar el estado del Usuario a 'Baja' siempre y cuando no esté en estado 'Baja' ya.
-        Devuelve OK o el mensaje de error en Mensaje.
+        Devuelve el usuario en 'respuesta' o el codigo de error en 'error.
     */
-    DECLARE pMensaje text;
     DECLARE pIdUsuarioEjecuta smallint;
+	DECLARE pMensaje text;
+    DECLARE pUsuarios JSON;
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pToken varchar(256);
+    DECLARE pIdUsuario smallint;
+    DECLARE pRespuesta JSON;
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'Error en la transacción. Contáctese con el administrador.' Mensaje;
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
 	END;
 
-	CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_dar_baja', pIdUsuarioEjecuta, pMensaje);
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_dar_baja', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
-        SELECT pMensaje Mensaje;
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
-    
-    IF pIdUsuario IS NULL THEN
-		SELECT 'ERROR_INGRESAR_USUARIO' pMensaje;
-        LEAVE SALIR;
-	END IF;
 
-    IF NOT EXISTS (SELECT IdUsuario From Usuarios WHERE IdUsuario = pIdUsuario) THEN
-		SELECT 'ERROR_NOEXISTE_USUARIO' pMensaje;
-        LEAVE SALIR;
-	END IF;
+    SET pUsuarios = pIn ->> "$.Usuarios";
+    SET pIdUsuario = pUsuarios ->> "$.IdUsuario";
 
-    IF NOT EXISTS(SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario AND Estado = 'A') THEN
-		SELECT 'ERROR_USUARIO_ESTA_BAJA' pMensaje;
+    SET @pEstado = (SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario);
+
+    IF (@pEstado IS NULL) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_USUARIO', NULL)pOut;
         LEAVE SALIR;
-	END IF;
+    END IF;
+
+     IF (@pEstado = 'B') THEN
+        SELECT f_generarRespuesta('ERROR_USUARIO_ESTA_BAJA', NULL)pOut;
+        LEAVE SALIR;
+    END IF;
 		
-
-	UPDATE Usuarios SET Estado = 'B' WHERE IdUsuario = pIdUsuario;
-    SELECT'OK', Mensaje;
-
+    START TRANSACTION;
+        UPDATE Usuarios SET Estado = 'B' WHERE IdUsuario = pIdUsuario;
+        SET pRespuesta = (
+                SELECT CAST(
+                        COALESCE(
+                            JSON_OBJECT(
+                                'IdUsuario', IdUsuario,
+                                'IdRol', IdRol,
+                                'IdUbicacion', IdUbicacion,
+                                'IdTipoDocumento', IdTipoDocumento,
+                                'Documento', Documento,
+                                'Nombres', Nombres,
+                                'Apellidos', Apellidos,
+                                'EstadoCivil', EstadoCivil,
+                                'Telefono', Telefono,
+                                'Email', Email,
+                                'CantidadHijos', CantidadHijos,
+                                'Usuario', Usuario,
+                                'FechaUltIntento', FechaUltIntento,
+                                'FechaNacimiento', FechaNacimiento,
+                                'FechaInicio', FechaInicio,
+                                'FechaAlta', FechaAlta,
+                                'FechaBaja', FechaBaja,
+                                'Estado', Estado
+                            )
+                        ,'') AS JSON)
+                FROM	Usuarios
+                WHERE	IdUsuario = pIdUsuario
+            );
+            SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pRespuesta)) AS pOut;
+    COMMIT;
 END $$
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `zsp_usuario_modificar`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_modificar`(pToken varchar(256), pIdUsuario smallint, pIdRol tinyint, pIdUbicacion tinyint,pIdTipoDocumento tinyint, pDocumento varchar(15), pNombres varchar(60), pApellidos varchar(60), pEstadoCivil char(1), pTelefono varchar(15),
-                                        pEmail varchar(120), pCantidadHijos tinyint, pUsuario varchar(40), pFechaNacimiento date, pFechaInicio date)
+CREATE PROCEDURE `zsp_usuario_modificar`(pIn JSON)
 
 SALIR:BEGIN
     /*
@@ -736,123 +1015,200 @@ SALIR:BEGIN
         Devuelve 'OK' + IdUsuario o el mensaje de error en  Mensaje.
     */
 
-    DECLARE pMensaje text;
+    DECLARE pUsuarios JSON;
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pRespuesta JSON;
     DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pMensaje text;
+    DECLARE pIdUsuario smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pIdRol tinyint;
+    DECLARE pIdUbicacion tinyint;
+    DECLARE pIdTipoDocumento tinyint;
+    DECLARE pDocumento varchar(15);
+    DECLARE pNombres varchar(40);
+    DECLARE pApellidos varchar(40);
+    DECLARE pEstadoCivil char(1);
+    DECLARE pTelefono varchar(15);
+    DECLARE pEmail varchar(120);
+    DECLARE pCantidadHijos tinyint;
+    DECLARE pUsuario varchar(40);
+    DECLARE pPassword varchar(255);
+    DECLARE pFechaNacimiento date;
+    DECLARE pFechaInicio date;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERROR_TRANSACCION' Mensaje;
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
 	END;
 
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_modificar', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
-        SELECT pMensaje Mensaje;
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
 
+
+    SET pUsuarios = pIn ->> "$.Usuarios";
+    SET pIdUsuario = pUsuarios ->> "$.IdUsuario";
+    SET pIdRol = pUsuarios ->> "$.IdRol";
+    SET pIdUbicacion = pUsuarios ->> "$.IdUbicacion";
+    SET pIdTipoDocumento = pUsuarios ->> "$.IdTipoDocumento";
+    SET pDocumento = pUsuarios ->> "$.Documento";
+    SET pNombres = pUsuarios ->> "$.Nombres";
+    SET pApellidos = pUsuarios ->> "$.Apellidos";
+    SET pEstadoCivil = pUsuarios ->> "$.EstadoCivil";
+    SET pTelefono = pUsuarios ->> "$.Telefono";
+    SET pEmail = pUsuarios ->> "$.Email";
+    SET pCantidadHijos = pUsuarios ->> "$.CantidadHijos";
+    SET pPassword = pUsuarios ->> "$.Password";
+    SET pUsuario = pUsuarios ->> "$.Usuario";
+    SET pFechaNacimiento = pUsuarios ->> "$.FechaNacimiento";
+    SET pFechaInicio = pUsuarios ->> "$.FechaInicio";
+
+
     IF (pIdUsuario IS NULL OR NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario)) THEN
-        SELECT 'ERROR_NOEXISTE_USUARIO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_USUARIO', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pIdRol IS NULL OR NOT EXISTS (SELECT IdRol FROM Roles WHERE IdRol = pIdRol)) THEN
-        SELECT 'ERROR_NOEXISTE_ROL' Mensaje;
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_ROL', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pIdUbicacion IS NULL OR NOT EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion)) THEN
-        SELECT 'ERROR_NOEXISTE_UBICACION' Mensaje;
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_UBICACION', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pIdTipoDocumento IS NULL OR NOT EXISTS (SELECT IdTipoDocumento FROM TiposDocumento WHERE IdTipoDocumento = pIdTipoDocumento)) THEN
-        SELECT 'ERROR_NOEXISTE_TIPODOC' Mensaje;
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_TIPODOC', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pDocumento IS NULL OR pDocumento = '') THEN
-        SELECT 'ERROR_INGRESAR_DOCUMENTO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INGRESAR_DOCUMENTO', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdTipoDocumento = pIdTipoDocumento AND Documento = pDocumento AND IdUsuario != pIdUsuario) THEN
-        SELECT 'ERROR_EXISTE_USUARIO_TIPODOC_DOC' Mensaje;
+        SELECT f_generarRespuesta('ERROR_EXISTE_USUARIO_TIPODOC_DOC', NULL)pOut;
         LEAVE SALIR;
     END IF;
     
     IF (pNombres IS NULL OR pNombres = '') THEN
-        SELECT 'ERROR_INGRESAR_NOMBRE' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INGRESAR_NOMBRE', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pApellidos IS NULL OR pApellidos = '') THEN
-        SELECT 'ERROR_INGRESAR_APELLIDO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INGRESAR_APELLIDO', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pEstadoCivil NOT IN ('C', 'S', 'D')) THEN
-        SELECT 'ERROR_INVALIDO_ESTADOCIVIL' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INVALIDO_ESTADOCIVIL', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pTelefono IS NULL OR pTelefono = '') THEN
-        SELECT 'ERROR_INGRESAR_TELEFONO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INGRESAR_TELEFONO', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pEmail IS NULL OR pEmail = '') THEN 
-        SELECT 'ERROR_INGRESAR_EMAIL' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INGRESAR_EMAIL', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF EXISTS (SELECT Email FROM Usuarios WHERE Email = pEmail AND IdUsuario != pIdUsuario) THEN
-        SELECT 'ERROR_EXISTE_EMAIL' Mensaje;
+        SELECT f_generarRespuesta('ERROR_EXISTE_EMAIL', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pCantidadHijos IS NULL) THEN
-        SELECT 'ERROR_INGRESAR_CANTIDADHIJOS' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INGRESAR_CANTIDADHIJOS', NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pUsuario IS NULL THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_USUARIO", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (LENGTH(pUsuario) <> LENGTH(REPLACE(pUsuario,' ',''))) THEN
-        SELECT 'ERROR_ESPACIO_USUARIO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_ESPACIO_USUARIO', NULL)pOut;
         LEAVE SALIR;
 	END IF;
 
     IF EXISTS(SELECT Usuario FROM Usuarios WHERE Usuario = pUsuario AND IdUsuario != pIdUsuario) THEN
-		SELECT 'ERROR_EXISTE_USUARIO' Mensaje;
+		SELECT f_generarRespuesta('ERROR_EXISTE_USUARIO', NULL)pOut;
 		LEAVE SALIR;
 	END IF;
 
     IF(pFechaNacimiento IS NULL OR pFechaNacimiento > NOW()) THEN
-        SELECT 'ERROR_FECHANACIMIENTO_ANTERIOR' Mensaje;
+        SELECT f_generarRespuesta('ERROR_FECHANACIMIENTO_ANTERIOR', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
     IF(pFechaInicio IS NULL OR pFechaInicio > NOW()) THEN
-        SELECT 'ERROR_FECHAINICIO_ANTERIOR' Mensaje;
+        SELECT f_generarRespuesta('ERROR_FECHAINICIO_ANTERIOR', NULL)pOut;
         LEAVE SALIR;
     END IF;
+    START TRANSACTION;  
+    
+        UPDATE  Usuarios 
+        SET IdUsuario = pIdUsuario,
+            IdRol = pIdRol,
+            IdUbicacion = pIdUbicacion,
+            IdTipoDocumento = pIdTipoDocumento,
+            Documento = pDocumento,
+            Nombres = pNombres, 
+            Apellidos = pApellidos,
+            EstadoCivil =  pEstadoCivil,
+            Telefono = pTelefono,
+            Email = pEmail,
+            CantidadHijos = pCantidadHijos,
+            Usuario = pUsuario,
+            FechaNacimiento = pFechaNacimiento,
+            FechaInicio = pFechaInicio
+        WHERE IdUsuario = pIdUsuario;
 
-    UPDATE  Usuarios 
-    SET IdUsuario = pIdUsuario,
-        IdRol = pIdRol,
-        IdUbicacion = pIdUbicacion,
-        IdTipoDocumento = pIdTipoDocumento,
-        Documento = pDocumento,
-        Nombres = pNombres, 
-        Apellidos = pApellidos,
-        EstadoCivil =  pEstadoCivil,
-        Telefono = pTelefono,
-        Email = pEmail,
-        CantidadHijos = pCantidadHijos,
-        Usuario = pUsuario,
-        FechaNacimiento = pFechaNacimiento,
-        FechaInicio = pFechaInicio
-    WHERE IdUsuario = pIdUsuario;
-    SELECT 'OK ', pMensaje;
+        SET pRespuesta = (
+            SELECT CAST(
+                    COALESCE(
+                        JSON_OBJECT(
+                            'IdUsuario', IdUsuario,
+                            'IdRol', IdRol,
+                            'IdUbicacion', IdUbicacion,
+                            'IdTipoDocumento', IdTipoDocumento,
+                            'Documento', Documento,
+                            'Nombres', Nombres,
+                            'Apellidos', Apellidos,
+                            'EstadoCivil', EstadoCivil,
+                            'Telefono', Telefono,
+                            'Email', Email,
+                            'CantidadHijos', CantidadHijos,
+                            'Usuario', Usuario,
+                            'FechaUltIntento', FechaUltIntento,
+                            'FechaNacimiento', FechaNacimiento,
+                            'FechaInicio', FechaInicio,
+                            'FechaAlta', FechaAlta,
+                            'FechaBaja', FechaBaja,
+                            'Estado', Estado
+                        )
+                    ,'') AS JSON)
+            FROM	Usuarios
+            WHERE	IdUsuario = pIdUsuario
+        );
+		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pRespuesta)) AS pOut;
+    COMMIT;
 
 END $$
 DELIMITER ;
@@ -861,7 +1217,7 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `zsp_usuario_modificar_pass`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_modificar_pass`(pToken varchar(256),pPasswordActual varchar(255), pPasswordNueva varchar(255))
+CREATE PROCEDURE `zsp_usuario_modificar_pass`(pIn JSON)
 
 SALIR:BEGIN
     /*
@@ -869,41 +1225,88 @@ SALIR:BEGIN
         Devuelve 'OK' o el mensaje de error en Mensaje
     */
     DECLARE pMensaje text;
+
+    DECLARE pUsuariosEjecuta, pUsuariosActual, pUsuariosNuevo, pRespuesta JSON;
+
     DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pPasswordActual varchar(255);
+    DECLARE pPasswordNueva varchar(255);
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-		SELECT 'ERROR_TRANSACCION' Mensaje;
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
 	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
 
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_modificar_pass', pIdUsuarioEjecuta, pMensaje);
 
     IF pMensaje != 'OK' THEN
-        SELECT pMensaje Mensaje;
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
+
+    SET pUsuariosActual = pIn ->> "$.UsuariosActual";
+    SET pPasswordActual = pUsuariosActual ->> "$.Password";
 
     IF NOT EXISTS(SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuarioEjecuta AND Password = pPasswordActual) THEN
-        SELECT 'ERROR_PASSWORD_INCORRECTA' Mensaje;
+        SELECT f_generarRespuesta('ERROR_PASSWORD_INCORRECTA', NULL) pOut;
         LEAVE SALIR;
     END IF;
 
+    SET pUsuariosNuevo = pIn ->> "$.UsuariosNuevo";
+    SET pPasswordNueva = pUsuariosNuevo ->> "$.Password";
+
     IF (pPasswordActual = pPasswordNueva) THEN
-        SELECT 'ERROR_PASSOWRDS_IGUALES' Mensaje;
+        SELECT f_generarRespuesta('ERROR_PASSWORDS_IGUALES', NULL) pOut;
         LEAVE SALIR;
     END IF;
 
 
     IF(pPasswordNueva IS NULL OR pPasswordNueva = '') THEN
-        SELECT 'ERROR_INGRESAR_PASSWORD' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INGRESAR_PASSWORD', NULL) pOut;
         LEAVE SALIR;
     END IF;
     
-    UPDATE  Usuarios 
-    SET Password = pPasswordNueva
-    WHERE IdUsuario = pIdUsuarioEjecuta;
-    SELECT 'OK ' Mensaje;
+
+    START TRANSACTION;  
+        UPDATE  Usuarios 
+        SET Password = pPasswordNueva
+        WHERE IdUsuario = pIdUsuarioEjecuta;
+
+        SET pRespuesta = (
+            SELECT CAST(
+                    COALESCE(
+                        JSON_OBJECT(
+                            'IdUsuario', IdUsuario,
+                            'IdRol', IdRol,
+                            'IdUbicacion', IdUbicacion,
+                            'IdTipoDocumento', IdTipoDocumento,
+                            'Documento', Documento,
+                            'Nombres', Nombres,
+                            'Apellidos', Apellidos,
+                            'EstadoCivil', EstadoCivil,
+                            'Telefono', Telefono,
+                            'Email', Email,
+                            'CantidadHijos', CantidadHijos,
+                            'Usuario', Usuario,
+                            'FechaUltIntento', FechaUltIntento,
+                            'FechaNacimiento', FechaNacimiento,
+                            'FechaInicio', FechaInicio,
+                            'FechaAlta', FechaAlta,
+                            'FechaBaja', FechaBaja,
+                            'Estado', Estado
+                        )
+                    ,'') AS JSON)
+            FROM	Usuarios
+            WHERE	IdUsuario = pIdUsuarioEjecuta
+        );
+		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pRespuesta)) AS pOut;
+    COMMIT;
 END $$
 DELIMITER ;
 
@@ -911,15 +1314,19 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `zsp_usuario_restablecer_pass`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuario_restablecer_pass`(pToken varchar(256), pIdUsuario smallint ,pPassword varchar(255))
+CREATE PROCEDURE `zsp_usuario_restablecer_pass`(pIn JSON)
 
 SALIR:BEGIN
     /*
-        Procedimiento que permite a un usuario restablecer la contraseña de otro usuario.
-        Devuelve 'OK' o el mensaje de error en Mensaje
+        Procedimiento que permite a un usuario restablecer la contraseña de otro usuario. 
+        Devuelve NULL en 'respuesta' o el codigo de error en 'error'.
     */
     DECLARE pMensaje text;
     DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pIdUsuario smallint;
+    DECLARE pPassword varchar(255);
+    DECLARE pToken varchar(256);
+    DECLARE pUsuarios, pUsuariosEjecuta, pRespuesta JSON;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -927,27 +1334,35 @@ SALIR:BEGIN
         ROLLBACK;
 	END;
 
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuario_restablecer_pass', pIdUsuarioEjecuta, pMensaje);
+
+    SET pUsuarios = pIn ->> "$.Usuarios";
+    SET pIdUsuario = pUsuarios ->> "$.IdUsuario";
+    SET pPassword = pUsuarios ->> "$.Password";
     
     IF pMensaje != 'OK' THEN
-        SELECT pMensaje Mensaje;
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (pIdUsuario IS NULL OR NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE IdUsuario = pIdUsuario)) THEN
-        SELECT 'ERROR_NOEXISTE_USUARIO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_USUARIO', NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF(pPassword IS NULL OR pPassword = '') THEN
-        SELECT 'ERROR_INGRESAR_PASSWORD' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INGRESAR_PASSWORD', NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     UPDATE  Usuarios 
     SET Password = pPassword
     WHERE IdUsuario = pIdUsuario;
-    SELECT 'OK ' Mensaje;
+    
+    SELECT f_generarRespuesta(NULL, NULL) pOut;
 
 END $$
 DELIMITER ;
@@ -983,18 +1398,7 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS `zsp_usuarios_buscar`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_usuarios_buscar`(
-    pToken varchar(256),
-    pNombresApellidos varchar(80),
-    pUsuario varchar(40),
-    pEmail varchar(120),
-    pDocumento varchar(15),
-    pTelefono varchar(15),
-    pEstadoCivil char(1),
-    pTieneHijos char(1),
-    pEstado char(1),
-    pIdRol tinyint,
-    pIdUbicacion tinyint)
+CREATE PROCEDURE `zsp_usuarios_buscar`(pIn JSON)
 SALIR: BEGIN
 	/*
 		Permite buscar los usuarios por una cadena, o bien, por sus nombres y apellidos, nombre de usuario, email, documento, telefono,
@@ -1005,23 +1409,76 @@ SALIR: BEGIN
     DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pMensaje text;
 
+    DECLARE pUsuarios JSON;
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pRespuesta JSON;
+    DECLARE pIdUsuario smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pIdRol tinyint;
+    DECLARE pIdUbicacion tinyint;
+    DECLARE pIdTipoDocumento tinyint;
+    DECLARE pDocumento varchar(15);
+    DECLARE pNombres varchar(60);
+    DECLARE pApellidos varchar(60);
+    DECLARE pEstadoCivil char(1);
+    DECLARE pTelefono varchar(15);
+    DECLARE pEmail varchar(120);
+    DECLARE pCantidadHijos tinyint;
+    DECLARE pUsuario varchar(40);
+    DECLARE pPassword varchar(255);
+    DECLARE pFechaNacimiento date;
+    DECLARE pFechaInicio date;
+    DECLARE pNombresApellidos varchar(120);
+    DECLARE pEstado char(1);
+    DECLARE pTieneHijos char(1);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_usuarios_buscar', pIdUsuarioEjecuta, pMensaje);
-	IF pMensaje!='OK' THEN
-		SELECT pMensaje Mensaje;
-		LEAVE SALIR;
-	END IF;
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pUsuarios = pIn ->> "$.Usuarios";
+    SET pIdRol = pUsuarios ->> "$.IdRol";
+    SET pIdUbicacion = pUsuarios ->> "$.IdUbicacion";
+    SET pIdTipoDocumento = pUsuarios ->> "$.IdTipoDocumento";
+    SET pDocumento = pUsuarios ->> "$.Documento";
+    SET pNombres = pUsuarios ->> "$.Nombres";
+    SET pApellidos = pUsuarios ->> "$.Apellidos";
+    SET pEstadoCivil = pUsuarios ->> "$.EstadoCivil";
+    SET pIdRol = pUsuarios ->> "$.IdRol";
+    SET pTelefono = pUsuarios ->> "$.Telefono";
+    SET pEmail = pUsuarios ->> "$.Email";
+    SET pCantidadHijos = pUsuarios ->> "$.CantidadHijos";
+    SET pPassword = pUsuarios ->> "$.Password";
+    SET pUsuario = pUsuarios ->> "$.Usuario";
+    SET pFechaNacimiento = pUsuarios ->> "$.FechaNacimiento";
+    SET pFechaInicio = pUsuarios ->> "$.FechaInicio";
+    SET pEstado = pUsuarios ->> "$.Estado";
+    SET pNombresApellidos = CONCAT(pNombres, pApellidos);
+
 
     IF pEstado IS NULL OR pEstado = '' OR pEstado NOT IN ('A','B') THEN
 		SET pEstado = 'T';
 	END IF;
 
     IF pEstadoCivil IS NULL OR pEstadoCivil = '' OR pEstadoCivil NOT IN ('C','S','D') THEN
-		SET pEstado = 'T';
+		SET pEstadoCivil = 'T';
 	END IF;
 
-    IF pTieneHijos IS NULL OR pTieneHijos = '' OR pTieneHijos NOT IN ('S','N') THEN
+    -- IF pTieneHijos IS NULL OR pTieneHijos = '' OR pTieneHijos NOT IN ('S','N') THEN
 		SET pTieneHijos = 'T';
-	END IF;
+	-- END IF;
     
     SET pNombresApellidos = COALESCE(pNombresApellidos,'');
     SET pUsuario = COALESCE(pUsuario,'');
@@ -1031,8 +1488,42 @@ SALIR: BEGIN
     SET pIdRol = COALESCE(pIdRol,0);
     SET pIdUbicacion = COALESCE(pIdUbicacion,0);
     
-	SELECT		u.*, Rol, Ubicacion,
-				IF(u.Estado = 'B','S','N') OpcionDarAlta, IF(u.Estado = 'A','S','N') OpcionDarBaja
+	SET pRespuesta = (SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    "Usuarios",
+                    JSON_OBJECT(
+						'IdUsuario', IdUsuario,
+                        'IdRol', IdRol,
+                        'IdUbicacion', IdUbicacion,
+                        'IdTipoDocumento', IdTipoDocumento,
+                        'Documento', Documento,
+                        'Nombres', Nombres,
+                        'Apellidos', Apellidos,
+                        'EstadoCivil', EstadoCivil,
+                        'Telefono', Telefono,
+                        'Email', Email,
+                        'CantidadHijos', CantidadHijos,
+                        'Usuario', Usuario,
+                        'FechaUltIntento', FechaUltIntento,
+                        'FechaNacimiento', FechaNacimiento,
+                        'FechaInicio', FechaInicio,
+                        'FechaAlta', u.FechaAlta,
+                        'FechaBaja', u.FechaBaja,
+                        'Estado', u.Estado
+					),
+                    "Roles",
+                    JSON_OBJECT(
+                        'IdRol', IdRol,
+                        'Rol', Rol
+					),
+                    "Ubicaciones",
+                    JSON_OBJECT(
+                        'IdUbicacion', IdUbicacion,
+                        'Ubicacion', Ubicacion
+					)
+                )
+            )
+
 	FROM		Usuarios u
 	INNER JOIN	Roles r USING (IdRol)
     INNER JOIN	Ubicaciones USING (IdUbicacion)
@@ -1049,10 +1540,869 @@ SALIR: BEGIN
                 (u.Estado = pEstado OR pEstado = 'T') AND
                 (u.EstadoCivil = pEstadoCivil OR pEstadoCivil = 'T') AND
                 IF(pTieneHijos = 'S', u.CantidadHijos > 0, IF(pTieneHijos = 'N', u.CantidadHijos = 0, pTieneHijos = 'T'))
-	ORDER BY	CONCAT(Apellidos, ' ', Nombres), Usuario;
+	ORDER BY	CONCAT(Apellidos, ' ', Nombres), Usuario);
+
+    SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+
+
 END $$
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS `zsp_ubicacion_borrar`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_ubicacion_borrar`(pIn JSON)
+
+
+SALIR: BEGIN
+	/*
+        Procedimiento que permite a un usuario borrar una ubicación.
+        Debe controlar que no haya sido utilizado en un presupuesto, venta, linea de producto, remito y que no tenga un Usuario. 
+        Devuelve NULL en 'respuesta' o el codigo de error en 'error'.
+    */
+    
+    
+    -- Usuario que ejecuta
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pToken varchar(256);
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pMensaje text;
+
+    -- Ubicacion a borrar
+    DECLARE pUbicaciones JSON;
+    DECLARE pIdUbicacion tinyint;
+    DECLARE pIdDomicilio int;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_ubicacion_borrar', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pUbicaciones = pIn ->> "$.Ubicaciones";
+    SET pIdUbicacion = pUbicaciones ->> "$.IdUbicacion";
+
+    IF NOT EXISTS (SELECT Ubicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_UBICACION', NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT u.IdUbicacion FROM Ubicaciones u INNER JOIN Presupuestos p USING(IdUbicacion) WHERE u.IdUbicacion = pIdUbicacion) THEN
+        SELECT f_generarRespuesta('ERROR_BORRAR_UBICACION_PRESUPUESTO', NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT u.IdUbicacion FROM Ubicaciones u INNER JOIN Ventas v USING(IdUbicacion) WHERE u.IdUbicacion = pIdUbicacion) THEN
+        SELECT f_generarRespuesta('ERROR_BORRAR_UBICACION_VENTA' , NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT u.IdUbicacion FROM Ubicaciones u INNER JOIN Remitos r USING(IdUbicacion) WHERE u.IdUbicacion = pIdUbicacion) THEN
+        SELECT f_generarRespuesta('ERROR_BORRAR_UBICACION_REMITO' , NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT u.IdUbicacion FROM Ubicaciones u INNER JOIN Usuarios us USING(IdUbicacion) WHERE u.IdUbicacion = pIdUbicacion) THEN
+        SELECT f_generarRespuesta('ERROR_BORRAR_UBICACION_USUARIO' , NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+START TRANSACTION;
+    SET pIdDomicilio = (SELECT IdDomicilio FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion);
+	DELETE FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion;
+    DELETE FROM Domicilios WHERE IdDomicilio = pIdDomicilio;
+    SELECT f_generarRespuesta(NULL, NULL)pOut;
+COMMIT ;
+END $$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `zsp_ubicacion_crear`;
+DELIMITER $$
+CREATE PROCEDURE  `zsp_ubicacion_crear` (pIn JSON)
+
+SALIR:BEGIN
+    /*
+        Procedimiento que permite crear una ubicación, crea el domicilio primero. 
+        Llama al zsp_domicilio_crear
+        Devuelve un json con la ubicación y el domicilio creados en respuesta o el codigo de error en error.
+    */
+    -- Usuario que ejecuta
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pToken varchar(256);
+    DECLARE pRespuesta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pMensaje text;
+    -- Domicilio creado
+    DECLARE pIdDomicilio int;
+    -- Ubicacion a crear
+    DECLARE pUbicaciones JSON;
+    DECLARE pUbicacion varchar(40);
+    DECLARE pObservacionesUbicacion varchar(255);
+
+    -- 
+    DECLARE pRespuestaSP JSON;
+
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_ubicacion_crear', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    -- Extraigo el domicilio del JSON
+    -- SET pDomicilios = pIn ->> "$.Domicilios";
+    -- SET pIdCiudad = pDomicilios ->> "$.IdCiudad";
+    -- SET pIdProvincia = pDomicilios ->> "$.IdProvincia";
+    -- SET pIdPais = pDomicilios ->> "$.IdPais";
+    -- SET pDomicilio = pDomicilios ->> "$.Domicilio";
+    -- SET pCodigoPostal = pDomicilios ->> "$.CodigoPostal";
+    -- SET pObservacionesDomicilio = pDomicilios ->> "$.Observaciones";
+
+    -- Extraigo la ubicacion del JSON
+    SET pUbicaciones = pIn ->> "$.Ubicaciones";
+    SET pUbicacion = pUbicaciones ->> "$.Ubicacion";
+    SET pObservacionesUbicacion = pUbicaciones ->> "$.Observaciones";
+
+    IF pUbicacion IS NULL THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_UBICACION", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE Ubicacion = pUbicacion) THEN
+        SELECT f_generarRespuesta("ERROR_EXISTE_UBICACION", NULL) pOut;
+        LEAVE SALIR;
+    END IF; 
+
+
+    START TRANSACTION;
+        
+        CALL zsp_domicilio_crear_comun(pIn, pIdDomicilio, pRespuestaSP);
+
+        IF pIdDomicilio IS NULL THEN
+            SELECT pRespuestaSP pOut;
+            LEAVE SALIR;
+        END IF;
+
+        INSERT INTO Ubicaciones (IdUbicacion, IdDomicilio, Ubicacion, FechaAlta, FechaBaja, Observaciones, Estado) VALUES (0, pIdDomicilio, pUbicacion, NOW(), NULL, NULLIF(pObservacionesUbicacion, ''), 'A');
+
+        SET pRespuesta = (
+			SELECT CAST(
+                JSON_OBJECT(
+                    "Ubicaciones",  JSON_OBJECT(
+                        'IdUbicacion', u.IdUbicacion,
+                        'IdDomicilio', u.IdDomicilio,
+                        'Ubicacion', u.Ubicacion,
+                        'FechaAlta', u.FechaAlta,
+                        'FechaBaja', u.FechaBaja,
+                        'Observaciones', u.Observaciones,
+                        'Estado', u.Estado
+                        ),
+                    "Domicilios", JSON_OBJECT(
+                        'IdDomicilio', d.IdDomicilio,
+                        'IdCiudad', d.IdCiudad,
+                        'IdProvincia', d.IdProvincia,
+                        'IdPais', d.IdPais,
+                        'Domicilio', d.Domicilio,
+                        'CodigoPostal', d.CodigoPostal,
+                        'FechaAlta', d.FechaAlta,
+                        'Observaciones', d.Observaciones
+                    ) 
+                )
+             AS JSON)
+			FROM	Ubicaciones u
+            INNER JOIN Domicilios d USING(IdDomicilio)
+			WHERE	u.IdDomicilio = pIdDomicilio
+        );
+	
+		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
+    COMMIT;
+END $$
+DELIMITER ;
+DROP PROCEDURE IF EXISTS `zsp_ubicacion_dar_alta`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_ubicacion_dar_alta`(pIn JSON)
+SALIR: BEGIN
+	/*
+        Permite cambiar el estado de una Ubicacion a 'Alta' siempre y cuando no esté en estado 'Alta' ya.
+        Devuelve la ubicacion en 'respuesta' o el codigo de error en 'error'.
+	*/
+    -- Usuario que ejecuta
+    DECLARE pUsuariosEjecuta JSON;
+	DECLARE pIdUsuarioEjecuta smallint;
+	DECLARE pMensaje text;
+    DECLARE pToken varchar(256);
+    DECLARE pIdUsuario smallint;
+
+    -- Ubicacion en cuestion
+    DECLARE pUbicacion JSON;
+    DECLARE pIdUbicacion tinyint;
+    
+    -- Respuesta generada
+    DECLARE pRespuesta JSON;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_ubicacion_dar_alta', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pUbicacion = pIn ->> "$.Ubicaciones";
+    SET pIdUbicacion = pUbicacion ->> "$.IdUbicacion";
+
+
+    IF pIdUbicacion IS NULL THEN
+		SELECT f_generarRespuesta('ERROR_INGRESAR_UBICACION', NULL)pOut;
+        LEAVE SALIR;
+	END IF;
+
+    SET @pEstado = (SELECT Estado FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion);
+
+    IF (@pEstado IS NULL) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_UBICACION', NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (@pEstado = 'A') THEN
+		SELECT f_generarRespuesta('ERROR_UBICACION_ESTA_ALTA', NULL)pOut;
+        LEAVE SALIR;
+	END IF;
+
+    START TRANSACTION;
+
+        UPDATE Ubicaciones
+        SET Estado = 'A',
+            FechaAlta = NOW()
+        WHERE IdUbicacion = pIdUbicacion;
+
+        SET pRespuesta = (
+			SELECT CAST(
+                JSON_OBJECT(
+                    "Ubicaciones",  JSON_OBJECT(
+                        'IdUbicacion', u.IdUbicacion,
+                        'IdDomicilio', u.IdDomicilio,
+                        'Ubicacion', u.Ubicacion,
+                        'FechaAlta', u.FechaAlta,
+                        'FechaBaja', u.FechaBaja,
+                        'Observaciones', u.Observaciones,
+                        'Estado', u.Estado
+                        ),
+                    "Domicilios", JSON_OBJECT(
+                        'IdDomicilio', d.IdDomicilio,
+                        'IdCiudad', d.IdCiudad,
+                        'IdProvincia', d.IdProvincia,
+                        'IdPais', d.IdPais,
+                        'Domicilio', d.Domicilio,
+                        'CodigoPostal', d.CodigoPostal,
+                        'FechaAlta', d.FechaAlta,
+                        'Observaciones', d.Observaciones
+                    ) 
+                )
+             AS JSON)
+			FROM	Ubicaciones u
+            INNER JOIN Domicilios d USING(IdDomicilio)
+			WHERE	u.IdUbicacion = pIdUbicacion
+        );
+	
+		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
+    COMMIT;
+
+END $$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `zsp_ubicacion_dar_baja`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_ubicacion_dar_baja`(pIn JSON)
+SALIR: BEGIN
+	/*
+        Permite cambiar el estado de una Ubicacion a 'Baja' siempre y cuando no esté en estado 'Baja' ya.
+        Devuelve la ubicacion en 'respuesta' o el codigo de error en 'error'.
+	*/
+    -- Usuario que ejecuta
+    DECLARE pUsuariosEjecuta JSON;
+	DECLARE pIdUsuarioEjecuta smallint;
+	DECLARE pMensaje text;
+    DECLARE pToken varchar(256);
+    DECLARE pIdUsuario smallint;
+
+    -- Ubicacion en cuestion
+    DECLARE pUbicacion JSON;
+    DECLARE pIdUbicacion tinyint;
+    
+    -- Respuesta generada
+    DECLARE pRespuesta JSON;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_ubicacion_dar_baja', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pUbicacion = pIn ->> "$.Ubicaciones";
+    SET pIdUbicacion = pUbicacion ->> "$.IdUbicacion";
+
+
+    IF pIdUbicacion IS NULL THEN
+		SELECT f_generarRespuesta('ERROR_INGRESAR_UBICACION', NULL)pOut;
+        LEAVE SALIR;
+	END IF;
+
+    SET @pEstado = (SELECT Estado FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion);
+
+    IF (@pEstado IS NULL) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_UBICACION', NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (@pEstado = 'B') THEN
+		SELECT f_generarRespuesta('ERROR_UBICACION_ESTA_BAJA', NULL)pOut;
+        LEAVE SALIR;
+	END IF;
+
+    START TRANSACTION;
+
+        UPDATE Ubicaciones
+        SET Estado = 'B',
+            FechaBaja = NOW()
+        WHERE IdUbicacion = pIdUbicacion;
+
+        SET pRespuesta = (
+			SELECT CAST(
+                JSON_OBJECT(
+                    "Ubicaciones",  JSON_OBJECT(
+                        'IdUbicacion', u.IdUbicacion,
+                        'IdDomicilio', u.IdDomicilio,
+                        'Ubicacion', u.Ubicacion,
+                        'FechaAlta', u.FechaAlta,
+                        'FechaBaja', u.FechaBaja,
+                        'Observaciones', u.Observaciones,
+                        'Estado', u.Estado
+                        ),
+                    "Domicilios", JSON_OBJECT(
+                        'IdDomicilio', d.IdDomicilio,
+                        'IdCiudad', d.IdCiudad,
+                        'IdProvincia', d.IdProvincia,
+                        'IdPais', d.IdPais,
+                        'Domicilio', d.Domicilio,
+                        'CodigoPostal', d.CodigoPostal,
+                        'FechaAlta', d.FechaAlta,
+                        'Observaciones', d.Observaciones
+                    ) 
+                )
+             AS JSON)
+			FROM	Ubicaciones u
+            INNER JOIN Domicilios d USING(IdDomicilio)
+			WHERE	u.IdUbicacion = pIdUbicacion
+        );
+	
+		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
+    COMMIT;
+
+END $$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `zsp_ubicacion_modificar`;
+DELIMITER $$
+CREATE PROCEDURE  `zsp_ubicacion_modificar` (pIn JSON)
+
+SALIR:BEGIN
+    /*
+        Procedimiento que permite modificar una ubicación y su domicilio. 
+        Debe existir el la ciudad, provincia y pais. Controla que no exista el mismo domicilio en la misma ciudad.
+        Devuelve un json con la ubicación y el domicilio modificado en respuesta o el codigo de error en error.
+    */
+    -- Usuario que ejecuta
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pToken varchar(256);
+    DECLARE pRespuesta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pMensaje text;
+
+    -- Domicilio a modificar
+    DECLARE pDomicilios JSON;
+    DECLARE pIdDomicilio int;
+    DECLARE pIdCiudad int;
+    DECLARE pIdProvincia int;
+    DECLARE pIdPais char(2);
+    DECLARE pDomicilio varchar(120);
+    DECLARE pCodigoPostal varchar(10);
+    DECLARE pFechaAlta datetime;
+    DECLARE pObservacionesDomicilio varchar(255);
+
+    -- Ubicacion a modificar
+    DECLARE pUbicaciones JSON;
+    DECLARE pIdUbicacion tinyint;
+    DECLARE pUbicacion varchar(40);
+    DECLARE pObservacionesUbicacion varchar(255);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_ubicacion_modificar', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    -- Extraigo el domicilio del JSON
+    SET pDomicilios = pIn ->> "$.Domicilios";
+    SET pIdDomicilio = pDomicilios ->> "$.IdDomicilio";
+    SET pIdCiudad = pDomicilios ->> "$.IdCiudad";
+    SET pIdProvincia = pDomicilios ->> "$.IdProvincia";
+    SET pIdPais = pDomicilios ->> "$.IdPais";
+    SET pDomicilio = pDomicilios ->> "$.Domicilio";
+    SET pCodigoPostal = pDomicilios ->> "$.CodigoPostal";
+    SET pObservacionesDomicilio = pDomicilios ->> "$.Observaciones";
+
+    -- Extraigo la ubicacion del JSON
+    SET pUbicaciones = pIn ->> "$.Ubicaciones";
+    SET pIdUbicacion = pUbicaciones ->> "$.IdUbicacion";
+    SET pUbicacion = pUbicaciones ->> "$.Ubicacion";
+    SET pObservacionesUbicacion = pUbicaciones ->> "$.Observaciones";
+
+    IF NOT EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_UBICACION", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pUbicacion IS NULL THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_UBICACION", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE Ubicacion = pUbicacion AND IdUbicacion <> pIdUbicacion) THEN
+        SELECT f_generarRespuesta("ERROR_EXISTE_UBICACION", NULL) pOut;
+        LEAVE SALIR;
+    END IF; 
+
+    IF (pIdPais IS NULL OR NOT EXISTS (SELECT IdPais FROM Paises WHERE IdPais = pIdPais)) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_PAIS", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pIdProvincia IS NULL OR NOT EXISTS (SELECT IdProvincia FROM Provincias WHERE IdProvincia = pIdProvincia AND IdPais = pIdPais)) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_PROVINCIA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pIdCiudad IS NULL OR NOT EXISTS (SELECT IdCiudad FROM Ciudades WHERE IdCiudad = pIdCiudad AND IdProvincia = pIdProvincia AND IdPais = pIdPais)) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_CIUDAD", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pCodigoPostal IS NULL) THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_CP", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+
+    IF EXISTS (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad AND IdDomicilio <> pIdDomicilio) THEN
+        SELECT f_generarRespuesta("ERROR_EXISTE_UBICACION_CIUDAD", NULL) pOut;
+    END IF;
+
+
+
+    START TRANSACTION;
+
+        
+        UPDATE Ubicaciones
+        SET Ubicacion = pUbicacion,
+            Observaciones = pObservacionesUbicacion
+        WHERE IdUbicacion = pIdUbicacion;
+
+        UPDATE Domicilios
+        SET IdCiudad = pIdCiudad,
+            IdProvincia = pIdProvincia,
+            IdPais = pIdPais,
+            Domicilio = pDomicilio,
+            CodigoPostal = pCodigoPostal,
+            Observaciones = pObservacionesDomicilio
+        WHERE IdDomicilio = pIdDomicilio;
+
+        SET pRespuesta = (
+			SELECT CAST(
+                JSON_OBJECT(
+                    "Ubicaciones",  JSON_OBJECT(
+                        'IdUbicacion', u.IdUbicacion,
+                        'IdDomicilio', u.IdDomicilio,
+                        'Ubicacion', u.Ubicacion,
+                        'FechaAlta', u.FechaAlta,
+                        'FechaBaja', u.FechaBaja,
+                        'Observaciones', u.Observaciones,
+                        'Estado', u.Estado
+                        ),
+                    "Domicilios", JSON_OBJECT(
+                        'IdDomicilio', d.IdDomicilio,
+                        'IdCiudad', d.IdCiudad,
+                        'IdProvincia', d.IdProvincia,
+                        'IdPais', d.IdPais,
+                        'Domicilio', d.Domicilio,
+                        'CodigoPostal', d.CodigoPostal,
+                        'FechaAlta', d.FechaAlta,
+                        'Observaciones', d.Observaciones
+                    ) 
+                )
+             AS JSON)
+			FROM	Ubicaciones u
+            INNER JOIN Domicilios d USING(IdDomicilio)
+			WHERE	u.IdUbicacion = pIdUbicacion
+        );
+	
+		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
+    COMMIT;
+END $$
+DELIMITER ;
+DROP PROCEDURE IF EXISTS `zsp_ubicaciones_listar`;
+DELIMITER $$
+CREATE PROCEDURE `zsp_ubicaciones_listar`()
+SALIR: BEGIN
+
+    /*
+        Devuele un json con el listado de las ubicaciones
+    */
+    DECLARE pRespuesta JSON;
+
+    SET pRespuesta  = (SELECT
+        JSON_ARRAYAGG(
+            JSON_OBJECT(
+                "Ubicaciones",  JSON_OBJECT(
+                    'IdUbicacion', u.IdUbicacion,
+                    'IdDomicilio', u.IdDomicilio,
+                    'Ubicacion', u.Ubicacion,
+                    'FechaAlta', u.FechaAlta,
+                    'FechaBaja', u.FechaBaja,
+                    'Observaciones', u.Observaciones,
+                    'Estado', u.Estado
+                    ),
+                "Domicilios", JSON_OBJECT(
+                    'IdDomicilio', d.IdDomicilio,
+                    'IdCiudad', d.IdCiudad,
+                    'IdProvincia', d.IdProvincia,
+                    'IdPais', d.IdPais,
+                    'Domicilio', d.Domicilio,
+                    'CodigoPostal', d.CodigoPostal,
+                    'FechaAlta', d.FechaAlta,
+                    'Observaciones', d.Observaciones
+                ) 
+            )
+        )  
+    FROM	Ubicaciones u
+    INNER JOIN Domicilios d USING(IdDomicilio)
+    );    
+    
+    SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+    
+
+END $$
+DELIMITER ;
+DROP PROCEDURE IF EXISTS `zsp_domicilio_borrar`;
+DELIMITER $$
+CREATE PROCEDURE `zsp_domicilio_borrar` (pIn JSON)
+
+SALIR:BEGIN
+    /*
+        Procedimiento que permite borrar un domicilio controlando que o hay sido utilizado en una venta, remito ni en una ubicacion. 
+        Devuelve un json con NULL en respuesta o el codigo de error en error.
+    */
+    
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pToken varchar(256);
+    DECLARE pRespuesta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pMensaje text;
+    DECLARE pDomicilios JSON;
+    DECLARE pIdDomicilio int;
+    DECLARE pClientes JSON;
+    DECLARE pIdCliente int;
+
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+    SET pClientes = pIn ->> "$.Clientes";
+    SET pIdCliente = pClientes ->> "$.IdCliente";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_domicilio_borrar', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+
+    SET pDomicilios = pIn ->> "$.Domicilios";
+    SET pIdDomicilio = pDomicilios ->> "$.IdDomicilio";
+
+    IF NOT EXISTS (SELECT IdDomicilio FROM Domicilios  WHERE IdDomicilio = pIdDomicilio) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_DOMICILIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT d.IdDomicilio FROM Domicilios d INNER JOIN Ventas v USING (IdDomicilio) WHERE d.IdDomicilio = pIdDomicilio) THEN
+        SELECT f_generarRespuesta("ERROR_BORRAR_DOMICILIO_VENTA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT d.IdDomicilio FROM Domicilios d INNER JOIN Remitos r USING (IdDomicilio) WHERE d.IdDomicilio = pIdDomicilio) THEN
+        SELECT f_generarRespuesta("ERROR_BORRAR_DOMICILIO_REMITO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT d.IdDomicilio FROM Domicilios d INNER JOIN Ubicaciones u USING (IdDomicilio) WHERE d.IdDomicilio = pIdDomicilio) THEN
+        SELECT f_generarRespuesta("ERROR_BORRAR_DOMICILIO_UBICACION", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+    
+
+
+    START TRANSACTION;
+        IF pIdCliente IS NULL THEN
+            IF ( NOT EXISTS (SELECT IdDomicilio FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio)) THEN
+                DELETE FROM Domicilios WHERE IdDomicilio = pIdDomicilio;
+            END IF;
+        ELSE
+            IF NOT EXISTS(SELECT IdDomicilio FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente <> pIdCliente) THEN
+                DELETE FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente = pIdCliente ;
+                DELETE FROM Domicilios WHERE IdDomicilio = pIdDomicilio;
+            ELSE
+                DELETE FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente = pIdCliente ;
+            END IF;
+            
+            
+        END IF;
+		SELECT f_generarRespuesta(NULL, NULL) AS pOut;
+    COMMIT;
+END $$
+DELIMITER ;
+DROP PROCEDURE IF EXISTS `zsp_domicilio_crear`;
+DELIMITER $$
+CREATE PROCEDURE  `zsp_domicilio_crear` (pIn JSON)
+
+SALIR:BEGIN
+    /*
+        Procedimiento que permite crear un domicilio.
+        Llama al procedimiento zsp_domicilio_crear_comun
+        Devuelve un json con el domicilio creado en respuesta o el codigo de error en error.
+    */
+
+    -- Usuario que ejecuta
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pToken varchar(256);
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pMensaje text;
+    -- Para llamar al procedimiento zsp_domicilio_crear_comun
+    DECLARE pRespuesta JSON;
+    DECLARE pIdDomicilio int;
+
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_domicilio_crear', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    CALL zsp_domicilio_crear_comun(pIn, pIdDomicilio, pRespuesta);
+
+    IF pIdDomicilio IS NULL THEN
+        SELECT pRespuesta pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pRespuesta = (
+    SELECT CAST(
+            COALESCE(
+                JSON_OBJECT(
+                    'IdDomicilio', IdDomicilio,
+                    'IdCiudad', IdCiudad,
+                    'IdProvincia', IdProvincia,
+                    'IdPais', IdPais,
+                    'Domicilio', Domicilio,
+                    'CodigoPostal', CodigoPostal,
+                    'FechaAlta', FechaAlta,
+                    'Observaciones', Observaciones
+                )
+            ,'') AS JSON)
+    FROM	Domicilios
+    WHERE	IdDomicilio = pIdDomicilio
+    );
+	SELECT f_generarRespuesta(NULL, JSON_OBJECT("Domicilios", pRespuesta)) AS pOut;
+
+END $$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `zsp_domicilio_crear_comun`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_domicilio_crear_comun`(pIn JSON, OUT pIdDomicilio int, OUT pOut JSON)
+SALIR:BEGIN
+    /*
+        Procedimiento que permite crear un domicilio y asociarlo a un cliente en caso de ser necesario. 
+        Debe existir el la ciudad, provincia y pais. Controla que no exista el mismo domicilio en la misma ciudad.
+        El cliente es opcional.
+        Devuelve el Id del domicilio o el error en pOut.
+    */
+    
+    -- Domicilio
+    DECLARE pDomicilios JSON;
+    DECLARE pIdCiudad int;
+    DECLARE pIdProvincia int;
+    DECLARE pIdPais char(2);
+    DECLARE pDomicilio varchar(120);
+    DECLARE pCodigoPostal varchar(10);
+    DECLARE pObservaciones varchar(255);
+
+    -- Cliente
+    DECLARE pClientes JSON;
+    DECLARE pIdCliente int;
+
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SET pOut = f_generarRespuesta("ERROR_TRANSACCION", NULL);
+        SET pIdDomicilio = NULL;
+        ROLLBACK;
+	END;
+
+    -- Extraigo datos del Domicilio a crear
+    SET pDomicilios = pIn ->> "$.Domicilios";
+    SET pIdCiudad = pDomicilios ->> "$.IdCiudad";
+    SET pIdProvincia = pDomicilios ->> "$.IdProvincia";
+    SET pIdPais = pDomicilios ->> "$.IdPais";
+    SET pDomicilio = pDomicilios ->> "$.Domicilio";
+    SET pCodigoPostal = pDomicilios ->> "$.CodigoPostal";
+    SET pObservaciones = pDomicilios ->> "$.Observaciones";
+
+    -- Extraigo datos del Cliente
+    SET pClientes = pIn ->> "$.Clientes";
+    SET pIdCliente = pClientes ->> "$.IdCliente";
+
+    IF (pIdCliente IS NOT NULL AND NOT EXISTS (SELECT IdCliente FROM Clientes WHERE IdCliente = pIdCliente)) THEN
+        SET pOut = f_generarRespuesta("ERROR_NOEXISTE_CLIENTE", NULL);
+        SET pIdDomicilio = NULL;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pIdPais IS NULL OR NOT EXISTS (SELECT IdPais FROM Paises WHERE IdPais = pIdPais)) THEN
+        SET pOut = f_generarRespuesta("ERROR_NOEXISTE_PAIS", NULL);
+        SET pIdDomicilio = NULL;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pIdProvincia IS NULL OR NOT EXISTS (SELECT IdProvincia FROM Provincias WHERE IdProvincia = pIdProvincia AND IdPais = pIdPais)) THEN
+        SET pOut = f_generarRespuesta("ERROR_NOEXISTE_PROVINCIA", NULL);
+        SET pIdDomicilio = NULL;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pIdCiudad IS NULL OR NOT EXISTS (SELECT IdCiudad FROM Ciudades WHERE IdCiudad = pIdCiudad AND IdProvincia = pIdProvincia AND IdPais = pIdPais)) THEN
+        SET pOut = f_generarRespuesta("ERROR_NOEXISTE_CIUDAD", NULL);
+        SET pIdDomicilio = NULL;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pCodigoPostal IS NULL) THEN
+        SET pOut = f_generarRespuesta("ERROR_INGRESAR_CP", NULL);
+        SET pIdDomicilio = NULL;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad) THEN
+        SET pOut = f_generarRespuesta("ERROR_EXISTE_UBICACION_CIUDAD", NULL);
+        SET pIdDomicilio = NULL;
+        LEAVE SALIR;
+    END IF;
+
+
+    START TRANSACTION;
+        SET pIdDomicilio = (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad);
+        -- En caso que el domicilio exista y el cliente no sea null, lo asocia al cliente con el domicilio
+        IF (pIdDomicilio IS NOT NULL) THEN
+            IF (pIdCliente IS NOT NULL) THEN
+                IF NOT EXISTS (SELECT IdDomicilio FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente = pIdCliente) THEN
+                    INSERT INTO DomiciliosCliente VALUES (pIdDomicilio, pIdCliente, NOW());
+                    SET pOut = NULL;
+                END IF;       
+            ELSE
+                SET pOut = f_generarRespuesta("ERROR_EXISTE_DOMICILIO", NULL);
+                 
+            END IF;
+        -- Si el domicilio no existe lo crea y lo asocia al cliente en caso de ser necesario
+        ELSE
+            INSERT INTO Domicilios (IdDomicilio,IdCiudad,IdProvincia,IdPais,Domicilio,CodigoPostal,FechaAlta,Observaciones) VALUES (0, pIdCiudad, pIdProvincia, pIdPais, pDomicilio, pCodigoPostal, NOW(), pObservaciones);
+            SET pIdDomicilio = (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad);
+            IF (pIdCliente IS NOT NULL) THEN
+                INSERT INTO DomiciliosCliente VALUES (pIdDomicilio, pIdCliente, NOW());
+            END IF;
+            SET pOut = NULL;
+        END IF;
+
+    COMMIT;
+
+END $$
+DELIMITER ;
 DROP PROCEDURE IF EXISTS `zsp_sesion_cerrar`;
 DELIMITER $$
 CREATE PROCEDURE `zsp_sesion_cerrar`(pIn JSON)
@@ -1086,7 +2436,7 @@ SALIR: BEGIN
     END IF;
     
     IF pIdUsuario IS NULL THEN
-		SELECT 'ERROR_INGRESAR_USUARIO' Mensaje;
+        SELECT f_generarRespuesta('ERROR_INGRESAR_USUARIO', NULL) pOut;
         LEAVE SALIR;
 	END IF;
 
@@ -1120,7 +2470,7 @@ SALIR: BEGIN
     DECLARE pPass VARCHAR(255);
     DECLARE pUsuario VARCHAR(40);
     DECLARE pEmail VARCHAR(120);
-    DECLARE pToken VARCHAR(120);
+    DECLARE pToken VARCHAR(256);
 
     SET pUsuarios = pIn ->> '$.Usuarios';
     SET pToken = pUsuarios ->> '$.Token'; 
@@ -1238,3 +2588,1189 @@ SALIR: BEGIN
 
 END $$
 DELIMITER ;
+DROP PROCEDURE IF EXISTS `zsp_tela_crear`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_tela_crear`(pIn JSON)
+SALIR: BEGIN
+    /*
+        Procedimiento que permite crear una tela. Control que no exista otra tela con el mismo nombre y que el precio sea mayor que cero.
+        Devuelve un json con la tela y el precio en respuesta o el error en error.
+    */
+    -- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+
+    -- Tela a crear
+    DECLARE pTelas JSON;
+    DECLARE pIdTela smallint;
+    DECLARE pTela varchar(60);
+    DECLARE pObservaciones varchar(255);
+
+    -- Precio de la tela
+    DECLARE pPrecios JSON;
+    DECLARE pPrecio decimal(10,2);
+
+    -- Para la respuesta
+    DECLARE pRespuesta JSON;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_tela_crear', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+    -- Extraigo atributos de Tela
+    SET pTelas = pIn ->> "$.Telas";
+    SET pTela = pTelas ->> "$.Tela";
+    -- Extraigo atributos de Precio
+    SET pPrecios = pIn ->> "$.Precios";
+    SET pPrecio = pPrecios ->> "$.Precio";
+
+    IF pTela IS NULL OR pTela = '' THEN 
+        SELECT f_generarRespuesta("ERROR_INGRESAR_TELA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (SELECT IdTela FROM Telas WHERE Tela = pTela) THEN
+        SELECT f_generarRespuesta("ERROR_EXISTE_TELA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pPrecio IS NULL OR pPrecio = 0.00 THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_PRECIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pPrecio < 0.00 THEN
+        SELECT f_generarRespuesta("ERROR_INVALIDO_PRECIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    START TRANSACTION;
+    
+    INSERT INTO Telas (IdTela, Tela, FechaAlta, FechaBaja, Observaciones, Estado) VALUES(0, pTela, NOW(), NULL, NULLIF(pObservaciones, ''), 'A');
+    SET pIdTela = (SELECT IdTela FROM Telas WHERE Tela = pTela);
+    INSERT INTO Precios (IdPrecio, Precio, Tipo, IdReferencia, FechaAlta) VALUES(0, pPrecio, 'T', pIdTela, NOW());
+
+    SET pRespuesta = (
+			SELECT CAST(
+                JSON_OBJECT(
+                    "Telas",  JSON_OBJECT(
+                        'IdTela', t.IdTela,
+                        'Tela', t.Tela,
+                        'FechaAlta', t.FechaAlta,
+                        'FechaBaja', t.FechaBaja,
+                        'Observaciones', t.Observaciones,
+                        'Estado', t.Estado
+                        ),
+                    "Precios", JSON_OBJECT(
+                        'IdPrecio', p.IdPrecio,
+                        'Precio', p.Precio,
+                        'FechaAlta', p.FechaAlta
+                    ) 
+                )
+             AS JSON)
+			FROM	Telas t
+            INNER JOIN Precios p ON (p.Tipo = 'T' AND t.IdTela = p.IdReferencia)
+			WHERE	t.IdTela = pIdTela
+        );
+	
+		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
+
+    COMMIT;
+END $$
+DELIMITER ;
+DROP PROCEDURE IF EXISTS`zsp_tela_listar_precios`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_tela_listar_precios`(pIn JSON)
+SALIR:BEGIN
+    /*
+        Procedimiento que permite listar el historico de precios de una tela.
+        Devuelve una lista de precios en respuesta o el error en error.
+    */
+
+    -- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+    
+    -- Tela de la cual se desea conocer el historico de precios
+    DECLARE pTelas JSON;
+    DECLARE pIdTela smallint;
+
+    -- Para la respuesta
+    DECLARE pRespuesta JSON;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_tela_listar_precios', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pTelas = pIn ->> "$.Telas";
+    SET pIdTela = pTelas ->> "$.IdTela";
+
+    IF NOT EXISTS (SELECT IdTela FROM Telas WHERE IdTela = pIdTela) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_TELA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pRespuesta = (SELECT 
+    JSON_ARRAYAGG(
+        JSON_OBJECT(
+            "Precios",
+            JSON_OBJECT(
+                'IdPrecio', IdPrecio,
+                'Precio', Precio,
+                'FechaAlta', FechaAlta
+            )
+        )
+    ) 
+    FROM Precios 
+    WHERE Tipo = 'T' AND IdReferencia = pIdTela
+    );
+    SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+
+END $$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `zsp_tela_modificar`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_tela_modificar`(pIn JSON)
+SALIR: BEGIN
+    /*
+        Procedimiento que permite modificar una tela. Control que no exista otra tela con el mismo nombre.
+        Devuelve un json con la tela y el precio en respuesta o el error en error.
+    */
+    -- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+
+    -- Tela a crear
+    DECLARE pTelas JSON;
+    DECLARE pIdTela smallint;
+    DECLARE pTela varchar(60);
+    DECLARE pObservaciones varchar(255);
+
+    -- Precio
+    DECLARE pIdPrecio int;
+
+    -- Para la respuesta
+    DECLARE pRespuesta JSON;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_tela_modificar', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+    -- Extraigo atributos de Tela
+    SET pTelas = pIn ->> "$.Telas";
+    SET pIdTela = pTelas ->> "$.IdTela";
+    SET pTela = pTelas ->> "$.Tela";
+
+    IF pTela IS NULL OR pTela = '' THEN 
+        SELECT f_generarRespuesta("ERROR_INGRESAR_TELA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF NOT EXISTS (SELECT IdTela FROM Telas WHERE IdTela = pIdTela) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_TELA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (SELECT IdTela FROM Telas WHERE Tela = pTela AND IdTela <> pIdTela) THEN
+        SELECT f_generarRespuesta("ERROR_EXISTE_TELA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    START TRANSACTION;
+    
+    UPDATE Telas
+    SET Tela = pTela,
+        Observaciones = NULLIF(pObservaciones, '')
+    WHERE IdTela = pIdTela;
+
+    SELECT f_dameUltimoPrecio('T', pIdTela) INTO pIdPrecio;
+
+    SET pRespuesta = (
+			SELECT CAST(
+                JSON_OBJECT(
+                    "Telas",  JSON_OBJECT(
+                        'IdTela', t.IdTela,
+                        'Tela', t.Tela,
+                        'FechaAlta', t.FechaAlta,
+                        'FechaBaja', t.FechaBaja,
+                        'Observaciones', t.Observaciones,
+                        'Estado', t.Estado
+                        ),
+                    "Precios", JSON_OBJECT(
+                        'IdPrecio', p.IdPrecio,
+                        'Precio', p.Precio,
+                        'FechaAlta', p.FechaAlta
+                    ) 
+                )
+             AS JSON)
+			FROM	Telas t
+            INNER JOIN Precios p ON (p.Tipo = 'T' AND t.IdTela = p.IdReferencia)
+			WHERE	t.IdTela = pIdTela AND p.IdPrecio = pIdPrecio
+        );
+	
+		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
+
+    COMMIT;
+END $$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `zsp_tela_modificar_precio`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_tela_modificar_precio`(pIn JSON)
+SALIR: BEGIN
+    /*
+        Procedimiento que permite modificar el precio de una tela. Controla que el precio sea mayor que cero.
+        Devuelve un json con la tela y el precio en respuesta o el error en error.
+    */
+    -- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+
+    -- Tela a crear
+    DECLARE pTelas JSON;
+    DECLARE pIdTela smallint;
+
+    -- Precio de la tela
+    DECLARE pPrecios JSON;
+    DECLARE pIdPrecio int;
+    DECLARE pPrecio decimal(10,2);
+
+    -- Para la respuesta
+    DECLARE pRespuesta JSON;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_tela_modificar_precio', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+    -- Extraigo atributos de Tela
+    SET pTelas = pIn ->> "$.Telas";
+    SET pIdTela = pTelas ->> "$.IdTela";
+    -- Extraigo atributos de Precio
+    SET pPrecios = pIn ->> "$.Precios";
+    SET pPrecio = pPrecios ->> "$.Precio";
+
+
+    IF pPrecio IS NULL OR pPrecio = 0.00 THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_PRECIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pPrecio < 0.00 THEN
+        SELECT f_generarRespuesta("ERROR_INVALIDO_PRECIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF NOT EXISTS (SELECT IdTela FROM Telas WHERE IdTela = pIdTela) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_TELA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SELECT f_dameUltimoPrecio('T', pIdTela) INTO pIdPrecio;
+
+    IF pPrecio = (SELECT Precio FROM Precios WHERE IdPrecio = pIdPrecio) THEN
+        SELECT f_generarRespuesta("ERROR_INVALIDO_PRECIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    START TRANSACTION;
+    
+    INSERT INTO Precios (IdPrecio, Precio, Tipo, IdReferencia, FechaAlta) VALUES(0, pPrecio, 'T', pIdTela, NOW());
+
+    SELECT f_dameUltimoPrecio('T', pIdTela) INTO pIdPrecio;
+
+    SET pRespuesta = (
+			SELECT CAST(
+                JSON_OBJECT(
+                    "Telas",  JSON_OBJECT(
+                        'IdTela', t.IdTela,
+                        'Tela', t.Tela,
+                        'FechaAlta', t.FechaAlta,
+                        'FechaBaja', t.FechaBaja,
+                        'Observaciones', t.Observaciones,
+                        'Estado', t.Estado
+                        ),
+                    "Precios", JSON_OBJECT(
+                        'IdPrecio', p.IdPrecio,
+                        'Precio', p.Precio,
+                        'FechaAlta', p.FechaAlta
+                    ) 
+                )
+             AS JSON)
+			FROM	Telas t
+            INNER JOIN Precios p ON (p.Tipo = 'T' AND t.IdTela = p.IdReferencia)
+			WHERE	t.IdTela = pIdTela AND p.IdPrecio = pIdPrecio
+        );
+		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
+
+    COMMIT;
+END $$
+DELIMITER ;
+DROP PROCEDURE IF EXISTS `zsp_cliente_borrar`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_cliente_borrar`(pIn JSON)
+
+
+SALIR: BEGIN
+	/*
+        Procedimiento que permite a un usuario borrar un cliente.
+        Debe controlar que no tenga presupuestos, ventas, y domicilios asociados 
+        Devuelve NULL en 'respuesta' o el codigo de error en 'error'.
+    */
+    -- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+
+    -- Cliente
+    DECLARE pClientes JSON;
+    DECLARE pIdCliente int;
+
+    -- Respuesta
+    DECLARE pRespuesta JSON;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_cliente_borrar', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pClientes = pIn ->> "$.Clientes";
+    SET pIdCliente = pClientes->> "$.IdCliente";
+
+
+    IF NOT EXISTS (SELECT IdCliente FROM Clientes WHERE IdCliente = pIdCliente) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_CLIENTE', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT c.IdCliente FROM Clientes c INNER JOIN Presupuestos p USING(IdCliente) WHERE c.IdCliente = pIdCliente) THEN
+        SELECT f_generarRespuesta('ERROR_BORRAR_CLIENTE_PRESUPUESTO', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT c.IdCliente FROM Clientes c INNER JOIN Ventas v USING(IdCliente) WHERE c.IdCliente = pIdCliente) THEN
+        SELECT f_generarRespuesta('ERROR_BORRAR_CLIENTE_VENTA' , NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT dc.IdCliente FROM DomiciliosCliente dc WHERE IdCliente = pIdCliente) THEN
+        SELECT f_generarRespuesta('ERROR_BORRAR_CLIENTE_DOMICILIO' , NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+    
+	DELETE FROM Clientes WHERE IdCliente = pIdCliente;
+    SELECT f_generarRespuesta(NULL, NULL) pOut;
+END $$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `zsp_cliente_crear`;
+DELIMITER $$
+CREATE PROCEDURE `zsp_cliente_crear`(pIn JSON)
+
+SALIR:BEGIN
+    /*
+        Procedimiento que permite a un usuario crear un cliente controlando que no exista un cliente con el mismo email y tipo y número de documento, tambien crea un Domicilio para dicho cliente. 
+        Debe existir el  TipoDocumento y el pais de Nacionalidad.
+        Tipo puede ser: F:Fisica o J:Jurídica
+        En caso de ser una persona fisica tendra DNI, Pasaporte o Libreta Civica , nombre y apellido, 
+        En caso de una persona jurídica tendra CUIT y RazonSocial
+        Devuelve un json con el cliente creado en respuesta o el codigo de error en error.
+    */
+    
+    -- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+
+    -- Cliente
+    DECLARE pClientes JSON;
+    DECLARE pIdCliente int;
+    DECLARE pIdPais char(2);
+    DECLARE pIdTipoDocumento tinyint;
+    DECLARE pDocumento varchar(15);
+    DECLARE pTipo char(1);
+    DECLARE pFechaNacimiento date;
+    DECLARE pNombres varchar(40);
+    DECLARE pApellidos varchar(40);
+    DECLARE pRazonSocial varchar(60);
+    DECLARE pEmail varchar(120);
+    DECLARE pTelefono varchar(15);
+    
+    -- Domicilio
+    DECLARE pDomicilios JSON;
+    DECLARE pIdDomicilio int;
+
+    -- Para la creacion del domicilio
+    DECLARE pRespuesta JSON;
+    DECLARE pInInterno JSON;
+
+
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_cliente_crear', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    -- Extraigo los datos del Cliente
+    SET pClientes = pIn ->> "$.Clientes";
+    SET pIdPais = pClientes ->> "$.IdPais";
+    SET pIdTipoDocumento = pClientes ->> "$.IdTipoDocumento";
+    SET pDocumento = pClientes ->> "$.Documento";
+    SET pTipo = pClientes ->> "$.Tipo";
+    SET pFechaNacimiento = pClientes ->> "$.FechaNacimiento";
+    SET pNombres = pClientes ->> "$.Nombres";
+    SET pApellidos = pClientes ->> "$.Apellidos";
+    SET pRazonSocial = pClientes ->> "$.RazonSocial";
+    SET pTelefono = pClientes ->> "$.Telefono";
+    SET pEmail = pClientes ->> "$.Email";
+
+    SET pDomicilios = pIn ->> "$.Domicilios";
+    
+    IF (pIdPais IS NULL OR NOT EXISTS (SELECT IdPais FROM Paises WHERE IdPais = pIdPais)) THEN
+        SElECT f_generarRespuesta("ERROR_NOEXISTE_PAIS", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pIdTipoDocumento IS NULL OR NOT EXISTS (SELECT IdTipoDocumento FROM TiposDocumento WHERE IdTipoDocumento = pIdTipoDocumento)) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_TIPODOC", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pTipo NOT IN ('F', 'J') THEN
+        SELECT f_generarRespuesta('ERROR_INVALIDO_TIPOPERSONA', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pTipo = 'J' AND pIdTipoDocumento <> (SELECT Valor FROM Empresa WHERE Parametro = 'IDTIPODOCUMENTOCUIT') THEN
+        SELECT f_generarRespuesta("ERROR_TIPODOCUMENTO_JURIDICA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pTipo = 'J' AND ( pRazonSocial = '' OR pRazonSocial IS NULL) THEN
+        SELECT f_generarRespuesta('ERROR_INGRESAR_RAZONSOCIAL', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pDocumento IS NULL OR pDocumento = '') THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_DOCUMENTO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT IdCliente FROM Clientes WHERE IdTipoDocumento = pIdTipoDocumento AND Documento = pDocumento) THEN
+        SELECT f_generarRespuesta("ERROR_EXISTE_CLIENTE_TIPODOC_DOC", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pFechaNacimiento IS NULL THEN
+        SELECT f_generarRespuesta('ERROR_INGRESAR_FECHANACIMIENTO', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+    
+    IF pTipo = 'F' AND (pNombres IS NULL OR pNombres = '') THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_NOMBRE", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pTipo = 'F' AND (pApellidos IS NULL OR pApellidos = '') THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_APELLIDO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pTelefono IS NULL OR pTelefono = '') THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_TELEFONO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pEmail IS NULL OR pEmail = '') THEN 
+        SELECT f_generarRespuesta("ERROR_INGRESAR_EMAIL", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT Email FROM Clientes WHERE Email = pEmail) THEN
+        SELECT f_generarRespuesta("ERROR_EXISTE_EMAIL", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pTipo = 'F' AND (pRazonSocial IS NOT NULL OR pRazonSocial = '') THEN
+            SET pRazonSocial = NULL;
+    END IF;
+
+    IF pTipo = 'J' AND (pNombres IS NOT NULL OR pApellidos IS NOT NULL)   THEN
+            SET pNombres = NULL;
+            SET pApellidos = NULL;
+    END IF;
+
+    START TRANSACTION;
+        
+        INSERT INTO Clientes (IdCliente,IdPais,IdTipoDocumento,Documento,Tipo,FechaNacimiento,Nombres,Apellidos,RazonSocial,Email,Telefono,FechaAlta,FechaBaja,Estado) VALUES (0, pIdPais, pIdTipoDocumento, pDocumento, pTipo, pFechaNacimiento, pNombres, pApellidos, pRazonSocial, pEmail, pTelefono, NOW(), NULL, 'A');
+        SET pIdCliente = (SELECT IdCliente FROM Clientes WHERE Email = pEmail);
+        
+        SET pInInterno = JSON_OBJECT("Domicilios", pDomicilios, "Clientes", JSON_OBJECT("IdCliente", pIdCliente));
+        -- Armar el JSON para crear el domicilio para el cliente recien creado.
+        CALL zsp_domicilio_crear_comun(pInInterno, pIdDomicilio, pRespuesta);
+
+        IF pIdDomicilio IS NULL THEN
+            SELECT pRespuesta pOut;
+            LEAVE SALIR;
+        END IF;
+        SET pDomicilios = (
+            SELECT CAST(
+                    COALESCE(
+                        JSON_OBJECT(
+                            'IdDomicilio', IdDomicilio,
+                            'IdCiudad', IdCiudad,
+                            'IdProvincia', IdProvincia,
+                            'IdPais', IdPais,
+                            'Domicilio', Domicilio,
+                            'CodigoPostal', CodigoPostal,
+                            'FechaAlta', FechaAlta,
+                            'Observaciones', Observaciones
+                        )
+                    ,'') AS JSON)
+            FROM	Domicilios
+            WHERE	IdDomicilio = pIdDomicilio
+        );
+
+        SET pRespuesta = (
+            SELECT CAST(
+                    JSON_OBJECT(
+                        "Clientes", JSON_OBJECT(
+                            'IdCliente', c.IdCliente,
+                            'IdPais', c.IdPais,
+                            'IdTipoDocumento', c.IdTipoDocumento,
+                            'Documento', c.Documento,
+                            'Tipo', c.Tipo,
+                            'FechaNacimiento', c.FechaNacimiento,
+                            'Nombres', c.Nombres,
+                            'Apellidos', c.Apellidos,
+                            'RazonSocial', c.RazonSocial,
+                            'Email', c.Email,
+                            'Telefono', c.Telefono,
+                            'FechaAlta', c.FechaAlta,
+                            'FechaBaja', c.FechaBaja,
+                            'Estado', c.Apellidos
+                            ),
+                        "Domicilios", pDomicilios) 
+                AS JSON)
+        FROM	Clientes c
+        WHERE	IdCliente = pIdCliente
+    );
+		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
+    COMMIT;
+END $$
+DELIMITER ;
+DROP PROCEDURE IF EXISTS `zsp_cliente_dar_alta`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_cliente_dar_alta`(pIn JSON)
+SALIR: BEGIN
+	/*
+        Permite cambiar el estado del Cliente a 'Alta' siempre y cuando no esté en estado 'Alta' ya.
+        Devuelve el cliene en 'respuesta' o el codigo de error en 'error'.
+	*/
+	-- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+
+    -- Cliente
+    DECLARE pClientes JSON;
+    DECLARE pIdCliente int;
+    
+    -- Respuesta
+    DECLARE pRespuesta JSON;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_cliente_dar_alta', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pClientes = pIn ->> "$.Clientes";
+    SET pIdCliente = pClientes ->> "$.IdCliente";
+
+
+    IF pIdCliente IS NULL THEN
+		SELECT f_generarRespuesta('ERROR_INGRESAR_CLIENTE', NULL)pOut;
+        LEAVE SALIR;
+	END IF;
+
+    SET @pEstado = (SELECT Estado FROM Clientes WHERE IdCliente = pIdCliente);
+
+    IF (@pEstado IS NULL) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_CLIENTE', NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (@pEstado = 'A') THEN
+		SELECT f_generarRespuesta('ERROR_CLIENTE_ESTA_ALTA', NULL)pOut;
+        LEAVE SALIR;
+	END IF;
+
+    START TRANSACTION;
+
+        UPDATE Clientes
+        SET Estado = 'A'
+        WHERE IdCliente = pIdCliente;
+
+        SET pRespuesta = (
+            SELECT CAST(
+                    COALESCE(
+                        JSON_OBJECT(
+                            'IdCliente', IdCliente,
+                            'IdPais', IdPais,
+                            'IdTipoDocumento', IdTipoDocumento,
+                            'Documento', Documento,
+                            'Tipo', Tipo,
+                            'Nombres', Nombres,
+                            'Apellidos', Apellidos,
+                            'RazonSocial', RazonSocial,
+                            'Telefono', Telefono,
+                            'Email', Email,
+                            'FechaAlta', FechaAlta,
+                            'FechaBaja', FechaBaja,
+                            'Estado', Estado
+                        )
+                    ,'') AS JSON)
+            FROM	Clientes
+            WHERE	IdCliente = pIdCliente
+        );
+        SELECT f_generarRespuesta(NULL, JSON_OBJECT("Clientes", pRespuesta)) AS pOut;
+    COMMIT;
+
+END $$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `zsp_cliente_dar_baja`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_cliente_dar_baja`(pIn JSON)
+SALIR: BEGIN
+	/*
+        Permite cambiar el estado del Cliente a 'Baja' siempre y cuando no esté en estado 'Baja' ya.
+        Devuelve el cliene en 'respuesta' o el codigo de error en 'error'.
+	*/
+	-- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+
+    -- Cliente
+    DECLARE pClientes JSON;
+    DECLARE pIdCliente int;
+
+    -- Respuesta
+    DECLARE pRespuesta JSON;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_cliente_dar_baja', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pClientes = pIn ->> "$.Clientes";
+    SET pIdCliente = pClientes ->> "$.IdCliente";
+
+
+    IF pIdCliente IS NULL THEN
+		SELECT f_generarRespuesta('ERROR_INGRESAR_CLIENTE', NULL)pOut;
+        LEAVE SALIR;
+	END IF;
+
+    SET @pEstado = (SELECT Estado FROM Clientes WHERE IdCliente = pIdCliente);
+
+    IF (@pEstado IS NULL) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_CLIENTE', NULL)pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (@pEstado = 'B') THEN
+		SELECT f_generarRespuesta('ERROR_CLIENTE_ESTA_BAJA', NULL)pOut;
+        LEAVE SALIR;
+	END IF;
+
+    START TRANSACTION;
+
+        UPDATE Clientes
+        SET Estado = 'B'
+        WHERE IdCliente = pIdCliente;
+
+        SET pRespuesta = (
+            SELECT CAST(
+                    COALESCE(
+                        JSON_OBJECT(
+                            'IdCliente', IdCliente,
+                            'IdPais', IdPais,
+                            'IdTipoDocumento', IdTipoDocumento,
+                            'Documento', Documento,
+                            'Tipo', Tipo,
+                            'Nombres', Nombres,
+                            'Apellidos', Apellidos,
+                            'RazonSocial', RazonSocial,
+                            'Telefono', Telefono,
+                            'Email', Email,
+                            'FechaAlta', FechaAlta,
+                            'FechaBaja', FechaBaja,
+                            'Estado', Estado
+                        )
+                    ,'') AS JSON)
+            FROM	Clientes
+            WHERE	IdCliente = pIdCliente
+        );
+        SELECT f_generarRespuesta(NULL, JSON_OBJECT("Clientes", pRespuesta)) AS pOut;
+    COMMIT;
+
+END $$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `zsp_cliente_listar_domicilios`;
+DELIMITER $$
+CREATE PROCEDURE `zsp_cliente_listar_domicilios`(pIn JSON)
+
+SALIR:BEGIN
+    /*
+        Procedimiento que permite listar los domicilios de un cliente
+        Devuelve un json con la lista de domicilios en respuesta o el codigo de error en error.
+    */
+
+    -- Cliente
+    DECLARE pClientes JSON;
+    DECLARE pIdCliente int;
+    
+    DECLARE pRespuesta JSON;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    -- Extraigo los datos del Cliente
+    SET pClientes = pIn ->> "$.Clientes";
+    SET pIdCliente = pClientes ->> "$.IdCliente";
+
+   SET pRespuesta  = (SELECT
+        JSON_ARRAYAGG(
+            JSON_OBJECT('Domicilios',
+                    JSON_OBJECT(
+                        'IdDomicilio', d.IdDomicilio, 
+                        'IdCiudad', d.IdCiudad,
+                        'IdProvincia', d.IdProvincia,
+                        'IdPais', d.IdPais,
+                        'Domicilio', d.Domicilio,
+                        'CodigoPostal', d.Domicilio,
+                        'FechaAlta', d.FechaAlta,
+                        'Observaciones', d.Observaciones
+                    )
+                )
+        )  
+    FROM	DomiciliosCliente dc
+    INNER JOIN Domicilios d ON dc.IdDomicilio = d.IdDomicilio
+    WHERE dc.IdCliente = pIdCliente
+    );    
+    
+    SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+END $$
+DELIMITER ;
+DROP PROCEDURE IF EXISTS `zsp_cliente_modificar`;
+DELIMITER $$
+CREATE PROCEDURE `zsp_cliente_modificar`(pIn JSON)
+
+SALIR:BEGIN
+    /*
+        Procedimiento que permite a un usuario modificar un cliente existente controlando que no exista un cliente con el mismo email y tipo y número de documento. 
+        Debe existir el  TipoDocumento y el pais de Nacionalidad.
+        Tipo puede ser: F:Fisica o J:Jurídica
+        En caso de ser una persona fisica tendra DNI, Pasaporte o Libreta Civica , nombre y apellido, 
+        En caso de una persona jurídica tendra CUIT y RazonSocial
+        Devuelve un json con el cliente creado en respuesta o el codigo de error en error.
+    */
+    
+    -- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+
+    -- Cliente
+    DECLARE pClientes JSON;
+    DECLARE pIdCliente int;
+    DECLARE pIdPais char(2);
+    DECLARE pIdTipoDocumento tinyint;
+    DECLARE pDocumento varchar(15);
+    DECLARE pTipo char(1);
+    DECLARE pFechaNacimiento date;
+    DECLARE pNombres varchar(40);
+    DECLARE pApellidos varchar(40);
+    DECLARE pRazonSocial varchar(60);
+    DECLARE pEmail varchar(120);
+    DECLARE pTelefono varchar(15);
+    
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_cliente_modificar', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    -- Extraigo los datos del Cliente
+    SET pClientes = pIn ->> "$.Clientes";
+    SET pIdCliente = pClientes ->> "$.IdCliente";
+    SET pIdPais = pClientes ->> "$.IdPais";
+    SET pIdTipoDocumento = pClientes ->> "$.IdTipoDocumento";
+    SET pDocumento = pClientes ->> "$.Documento";
+    SET pTipo = pClientes ->> "$.Tipo";
+    SET pFechaNacimiento = pClientes ->> "$.FechaNacimiento";
+    SET pNombres = pClientes ->> "$.Nombres";
+    SET pApellidos = pClientes ->> "$.Apellidos";
+    SET pRazonSocial = pClientes ->> "$.RazonSocial";
+    SET pTelefono = pClientes ->> "$.Telefono";
+    SET pEmail = pClientes ->> "$.Email";
+
+    
+    IF (pIdPais IS NULL OR NOT EXISTS (SELECT IdPais FROM Paises WHERE IdPais = pIdPais)) THEN
+        SElECT f_generarRespuesta("ERROR_NOEXISTE_PAIS", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pIdTipoDocumento IS NULL OR NOT EXISTS (SELECT IdTipoDocumento FROM TiposDocumento WHERE IdTipoDocumento = pIdTipoDocumento)) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_TIPODOC", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pTipo NOT IN ('F', 'J') THEN
+        SELECT f_generarRespuesta('ERROR_INVALIDO_TIPOPERSONA', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pTipo = 'J' AND pIdTipoDocumento <> (SELECT Valor FROM Empresa WHERE Parametro = 'IDTIPODOCUMENTOCUIT') THEN
+        SELECT f_generarRespuesta("ERROR_TIPODOCUMENTO_JURIDICA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pTipo = 'J' AND ( pRazonSocial = '' OR pRazonSocial IS NULL) THEN
+        SELECT f_generarRespuesta('ERROR_INGRESAR_RAZONSOCIAL', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pDocumento IS NULL OR pDocumento = '') THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_DOCUMENTO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT IdCliente FROM Clientes WHERE IdTipoDocumento = pIdTipoDocumento AND Documento = pDocumento AND IdCliente <> pIdCliente) THEN
+        SELECT f_generarRespuesta("ERROR_EXISTE_CLIENTE_TIPODOC_DOC", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pFechaNacimiento IS NULL THEN
+        SELECT f_generarRespuesta('ERROR_INGRESAR_FECHANACIMIENTO', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+    
+    IF pTipo = 'F' AND (pNombres IS NULL OR pNombres = '') THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_NOMBRE", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pTipo = 'F' AND (pApellidos IS NULL OR pApellidos = '') THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_APELLIDO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pTelefono IS NULL OR pTelefono = '') THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_TELEFONO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF (pEmail IS NULL OR pEmail = '') THEN 
+        SELECT f_generarRespuesta("ERROR_INGRESAR_EMAIL", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF EXISTS (SELECT Email FROM Clientes WHERE Email = pEmail AND IdCliente <> pIdCliente) THEN
+        SELECT f_generarRespuesta("ERROR_EXISTE_EMAIL", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pTipo = 'F' AND (pRazonSocial IS NOT NULL OR pRazonSocial = '') THEN
+            SET pRazonSocial = NULL;
+    END IF;
+
+    IF pTipo = 'J' AND (pNombres IS NOT NULL OR pApellidos IS NOT NULL)   THEN
+            SET pNombres = NULL;
+            SET pApellidos = NULL;
+    END IF;
+
+    START TRANSACTION;
+        
+        UPDATE Clientes
+        SET IdPais = pIdPais,
+            IdTipoDocumento = pIdTipoDocumento,
+            Documento = pDocumento,
+            Tipo = pTipo,
+            FechaNacimiento = pFechaNacimiento,
+            Nombres = pNombres,
+            Apellidos = pApellidos,
+            RazonSocial = pRazonSocial,
+            Email = pEmail,
+            Telefono = pTelefono
+        WHERE IdCliente = pIdCliente;
+
+        SET pClientes = (
+            SELECT CAST(
+                JSON_OBJECT(
+                    'IdCliente', c.IdCliente,
+                    'IdPais', c.IdPais,
+                    'IdTipoDocumento', c.IdTipoDocumento,
+                    'Documento', c.Documento,
+                    'Tipo', c.Tipo,
+                    'FechaNacimiento', c.FechaNacimiento,
+                    'Nombres', c.Nombres,
+                    'Apellidos', c.Apellidos,
+                    'RazonSocial', c.RazonSocial,
+                    'Email', c.Email,
+                    'Telefono', c.Telefono,
+                    'FechaAlta', c.FechaAlta,
+                    'FechaBaja', c.FechaBaja,
+                    'Estado', c.Apellidos
+                ) AS JSON)
+        FROM	Clientes c
+        WHERE	IdCliente = pIdCliente
+    );
+		SELECT f_generarRespuesta(NULL, JSON_OBJECT("Clientes", pClientes)) AS pOut;
+    COMMIT;
+END $$
+DELIMITER ;
+DROP PROCEDURE IF EXISTS `zsp_clientes_buscar`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_clientes_buscar` (pIn JSON)
+SALIR: BEGIN
+	/*
+		Permite buscar los clientes por una cadena, o bien, nombres y apellidos, razon social, email, documento, telefono,
+        Tipo de persona (F:Fisica - J:Juridica - T:Todos), estado (A:Activo - B:Baja - T:Todos), pais (**: Todos), 
+	*/
+
+   -- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+
+    -- Cliente
+    DECLARE pClientes JSON;
+    DECLARE pIdPais char(2);
+    DECLARE pDocumento varchar(15);
+    DECLARE pTipo char(1);
+    DECLARE pEstado char(1);
+    DECLARE pNombres varchar(40);
+    DECLARE pApellidos varchar(40);
+    DECLARE pRazonSocial varchar(60);
+    DECLARE pEmail varchar(120);
+    DECLARE pTelefono varchar(15);
+    DECLARE pNombresApellidos varchar(90);
+
+    DECLARE pRespuesta JSON;
+
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_clientes_buscar', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SET pClientes = pIn ->> "$.Clientes";
+    SET pIdPais = pClientes ->> "$.IdPais";
+    SET pDocumento = pClientes ->> "$.Documento";
+    SET pTipo = pClientes ->> "$.Tipo";
+    SET pEstado = pClientes ->> "$.Estado";
+    SET pNombres = pClientes ->> "$.Nombres";
+    SET pApellidos = pClientes ->> "$.Apellidos";
+    SET pRazonSocial = pClientes ->> "$.RazonSocial";
+    SET pTelefono = pClientes ->> "$.Telefono";
+    SET pEmail = pClientes ->> "$.Email";
+
+    SET pNombres = COALESCE(pNombres,'');
+    SET pApellidos = COALESCE(pApellidos,'');
+    SET pNombresApellidos = CONCAT(pNombres, pApellidos);
+
+
+    IF pEstado IS NULL OR pEstado = '' OR pEstado NOT IN ('A','B') THEN
+		SET pEstado = 'T';
+	END IF;
+
+    IF pTipo IS NULL OR pTipo = '' OR pTipo NOT IN ('F','J') THEN
+		SET pTipo = 'T';
+	END IF;
+
+    IF pIdPais IS NULL OR pIdPais = '' THEN
+        SET pIdPais = '**';
+    END IF;
+
+    
+    SET pNombresApellidos = COALESCE(pNombresApellidos,'');
+    SET pRazonSocial = COALESCE(pRazonSocial,'');
+    SET pEmail = COALESCE(pEmail,'');
+    SET pDocumento = COALESCE(pDocumento,'');
+    SET pTelefono = COALESCE(pTelefono,'');
+    SET pTipo = COALESCE(pTipo,'');
+    
+	SET pRespuesta = (SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    "Clientes",
+                    JSON_OBJECT(
+						'IdCliente', IdCliente,
+                        'IdPais', IdPais,
+                        'IdTipoDocumento', IdTipoDocumento,
+                        'Documento', Documento,
+                        'Tipo', Tipo,
+                        'FechaNacimiento', FechaNacimiento,
+                        'Nombres', Nombres,
+                        'Apellidos', Apellidos,
+                        'RazonSocial', RazonSocial,
+                        'Email', Email,
+                        'Telefono', Telefono,
+                        'FechaAlta', FechaAlta,
+                        'FechaBaja', FechaBaja,
+                        'Estado', Estado
+					)
+                )
+            )
+
+	FROM Clientes 
+	WHERE	
+        IF (Nombres IS NULL AND Apellidos IS NULL, TRUE, CONCAT(Apellidos,',',Nombres) LIKE CONCAT('%', pNombresApellidos, '%')) AND
+        Email LIKE CONCAT(pEmail, '%') AND
+        Documento LIKE CONCAT(pDocumento, '%') AND
+        Telefono LIKE CONCAT(pTelefono, '%') AND
+        IF (RazonSocial IS NULL, TRUE, RazonSocial LIKE CONCAT(pRazonSocial, '%')) AND 
+        (IdPais = pIdPais OR pIdPais = '**') AND
+        (Tipo = pTipo OR pTipo = 'T') AND
+        (Estado = pEstado OR pEstado = 'T') 
+	ORDER BY CONCAT(Apellidos, ' ', Nombres), RazonSocial);
+
+    SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+
+
+
+END $$
+DELIMITER ;
+
