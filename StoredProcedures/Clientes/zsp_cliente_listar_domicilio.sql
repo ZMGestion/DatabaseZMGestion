@@ -25,6 +25,11 @@ SALIR:BEGIN
     SET pClientes = pIn ->> "$.Clientes";
     SET pIdCliente = pClientes ->> "$.IdCliente";
 
+    IF pIdCliente IS NULL OR NOT EXISTS (SELECT IdCliente FROM Clientes WHERE IdCliente = pIdCliente) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_CLIENTE', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
    SET pRespuesta  = (SELECT
         JSON_ARRAYAGG(
             JSON_OBJECT('Domicilios',

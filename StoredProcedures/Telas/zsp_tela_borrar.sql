@@ -60,8 +60,6 @@ SALIR:BEGIN
         SELECT f_generarRespuesta(NULL, NULL) pOut;
         SET SQL_SAFE_UPDATES = 1;
     COMMIT;
-
-
-
+    
 END $$
 DELIMITER ;

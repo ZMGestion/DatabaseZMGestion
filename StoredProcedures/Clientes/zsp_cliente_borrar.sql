@@ -43,7 +43,7 @@ SALIR: BEGIN
     SET pIdCliente = pClientes->> "$.IdCliente";
 
 
-    IF NOT EXISTS (SELECT IdCliente FROM Clientes WHERE IdCliente = pIdCliente) THEN
+    IF pIdCliente IS NULL OR NOT EXISTS (SELECT IdCliente FROM Clientes WHERE IdCliente = pIdCliente) THEN
         SELECT f_generarRespuesta('ERROR_NOEXISTE_CLIENTE', NULL) pOut;
         LEAVE SALIR;
     END IF;

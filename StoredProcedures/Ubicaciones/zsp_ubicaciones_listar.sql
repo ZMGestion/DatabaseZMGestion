@@ -38,6 +38,5 @@ SALIR: BEGIN
     
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
     
-
 END $$
 DELIMITER ;

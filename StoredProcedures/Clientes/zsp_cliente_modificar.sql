@@ -63,7 +63,11 @@ SALIR:BEGIN
     SET pTelefono = pClientes ->> "$.Telefono";
     SET pEmail = pClientes ->> "$.Email";
 
-    
+    IF pIdCliente IS NULL OR NOT EXISTS (SELECT IdCliente FROM Clientes WHERE IdCliente = pIdCliente) THEN
+        SELECT f_generarRespuesta('ERROR_NOEXISTE_CLIENTE', NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
     IF (pIdPais IS NULL OR NOT EXISTS (SELECT IdPais FROM Paises WHERE IdPais = pIdPais)) THEN
         SElECT f_generarRespuesta("ERROR_NOEXISTE_PAIS", NULL) pOut;
         LEAVE SALIR;
