@@ -50,7 +50,7 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF NOT EXISTS (SELECT IdTela FROM Telas WHERE IdTela = pIdTela) THEN
+    IF pIdTela IS NULL OR NOT EXISTS (SELECT IdTela FROM Telas WHERE IdTela = pIdTela) THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_TELA", NULL) pOut;
         LEAVE SALIR;
     END IF;
