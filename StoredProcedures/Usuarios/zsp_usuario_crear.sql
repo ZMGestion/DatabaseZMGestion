@@ -21,8 +21,8 @@ SALIR:BEGIN
     DECLARE pIdUbicacion tinyint;
     DECLARE pIdTipoDocumento tinyint;
     DECLARE pDocumento varchar(15);
-    DECLARE pNombres varchar(60);
-    DECLARE pApellidos varchar(60);
+    DECLARE pNombres varchar(40);
+    DECLARE pApellidos varchar(40);
     DECLARE pEstadoCivil char(1);
     DECLARE pTelefono varchar(15);
     DECLARE pEmail varchar(120);

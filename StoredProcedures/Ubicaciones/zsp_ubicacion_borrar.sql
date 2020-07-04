@@ -41,7 +41,7 @@ SALIR: BEGIN
     SET pUbicaciones = pIn ->> "$.Ubicaciones";
     SET pIdUbicacion = pUbicaciones ->> "$.IdUbicacion";
 
-    IF NOT EXISTS (SELECT Ubicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
+    IF pIdUbicacion IS NULL OR NOT EXISTS (SELECT Ubicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
         SELECT f_generarRespuesta('ERROR_NOEXISTE_UBICACION', NULL)pOut;
         LEAVE SALIR;
     END IF;
