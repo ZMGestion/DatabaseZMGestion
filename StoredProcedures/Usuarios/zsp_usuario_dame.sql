@@ -26,8 +26,8 @@ SALIR: BEGIN
     SET pIdUsuario = pUsuarios ->> '$.IdUsuario';
 
 	SET pRespuesta = (
-        SELECT CAST(
-				COALESCE(
+        SELECT JSON_OBJECT(
+                    "Usuarios",
 					JSON_OBJECT(
 						'IdUsuario', IdUsuario,
                         'IdRol', IdRol,
@@ -44,16 +44,27 @@ SALIR: BEGIN
                         'FechaUltIntento', FechaUltIntento,
                         'FechaNacimiento', FechaNacimiento,
                         'FechaInicio', FechaInicio,
-                        'FechaAlta', FechaAlta,
-                        'FechaBaja', FechaBaja,
-                        'Estado', Estado
-					)
-				,'') AS JSON)
-        FROM	Usuarios
+                        'FechaAlta', u.FechaAlta,
+                        'FechaBaja', u.FechaBaja,
+                        'Estado', u.Estado
+					),
+                    "Roles",
+                    JSON_OBJECT(
+                        'IdRol', IdRol,
+                        'Rol', Rol
+					),
+                    "Ubicaciones",
+                    JSON_OBJECT(
+                        'IdUbicacion', IdUbicacion,
+                        'Ubicacion', Ubicacion
+					))
+        FROM	Usuarios u
+        INNER JOIN	Roles r USING (IdRol)
+        INNER JOIN	Ubicaciones USING (IdUbicacion)
         WHERE	IdUsuario = pIdUsuario
     );
 
-    SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pRespuesta)) pOut;
+    SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
 
 END $$
 DELIMITER ;
