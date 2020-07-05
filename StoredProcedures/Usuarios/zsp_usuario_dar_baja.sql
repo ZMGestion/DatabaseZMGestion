@@ -34,6 +34,11 @@ SALIR: BEGIN
     SET pUsuarios = pIn ->> "$.Usuarios";
     SET pIdUsuario = pUsuarios ->> "$.IdUsuario";
 
+    IF pIdUsuario = 1 THEN
+		SELECT f_generarRespuesta('ERROR_DARBAJA_USUARIO_ADAM', NULL)pOut;
+		LEAVE SALIR;
+	END IF;
+
     SET @pEstado = (SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario);
 
     IF (@pEstado IS NULL) THEN
@@ -47,7 +52,10 @@ SALIR: BEGIN
     END IF;
 		
     START TRANSACTION;
-        UPDATE Usuarios SET Estado = 'B' WHERE IdUsuario = pIdUsuario;
+        UPDATE Usuarios 
+        SET Estado = 'B',
+            Token = NULL 
+        WHERE IdUsuario = pIdUsuario;
         SET pRespuesta = (
                 SELECT CAST(
                         COALESCE(

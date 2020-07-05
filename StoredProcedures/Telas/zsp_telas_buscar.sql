@@ -57,6 +57,7 @@ SALIR:BEGIN
                         'Tela', Tela,
                         'FechaAlta', FechaAlta,
                         'FechaBaja', FechaBaja,
+                        'Observaciones', Observaciones,
                         'Estado', Estado
 					)
                 )
