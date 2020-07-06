@@ -13,7 +13,7 @@ SALIR: BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
-    -- Tela a crear
+    -- Tela
     DECLARE pTelas JSON;
     DECLARE pIdTela smallint;
 
