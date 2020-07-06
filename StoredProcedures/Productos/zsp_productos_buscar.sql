@@ -61,33 +61,63 @@ SALIR:BEGIN
     SET pIdCategoriaProducto = COALESCE(pIdCategoriaProducto, 0);
     SET pIdGrupoProducto = COALESCE(pIdGrupoProducto, 0);
 
-    SET pRespuesta = (SELECT JSON_ARRAYAGG(
-            JSON_OBJECT(
-                "Productos",
-                JSON_OBJECT(
-                    'IdProducto', IdProducto,
-                    'IdCategoriaProducto', IdCategoriaProducto,
-                    'IdGrupoProducto', IdGrupoProducto,
-                    'IdTipoProducto', IdTipoProducto,
-                    'Producto', Producto,
-                    'LongitudTela', LongitudTela,
-                    'FechaAlta', FechaAlta,
-                    'FechaBaja', FechaBaja,
-                    'Observaciones', Observaciones,
-                    'Estado', Estado
-                )
-            )
-        )
-	FROM Productos 
+    DROP TEMPORARY TABLE IF EXISTS tmp_Productos;
+    DROP TEMPORARY TABLE IF EXISTS tmp_ultimosPrecios;
+    DROP TEMPORARY TABLE IF EXISTS tmp_preciosProductos;
+
+
+    CREATE TEMPORARY TABLE tmp_Productos 
+    AS SELECT *
+    FROM Productos 
 	WHERE	
         Producto LIKE CONCAT(pProducto, '%') AND
         (Estado = pEstado OR pEstado = 'T') AND
         (IdTipoProducto = pIdTipoProducto OR pIdTipoProducto = 'T') AND
         (IdCategoriaProducto = pIdCategoriaProducto OR pIdCategoriaProducto = 0) AND
         (IdGrupoProducto = pIdGrupoProducto OR pIdGrupoProducto = 0)
-	ORDER BY Producto);
+	ORDER BY Producto;
+
+    CREATE TEMPORARY TABLE tmp_preciosProductos AS
+    SELECT IdReferencia, MAX(IdPrecio) latestId 
+    FROM Precios WHERE Tipo = 'P' GROUP BY IdReferencia;
+
+    CREATE TEMPORARY TABLE tmp_ultimosPrecios AS
+    SELECT pr.* 
+    FROM tmp_preciosProductos tmp
+    INNER JOIN Precios pr ON (pr.IdReferencia = tmp.IdReferencia AND pr.IdPrecio = tmp.latestId);
+
+    SET pRespuesta = (SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+                "Productos",
+                    JSON_OBJECT(
+                        'IdProducto', tp.IdProducto,
+                        'IdCategoriaProducto', tp.IdCategoriaProducto,
+                        'IdGrupoProducto', tp.IdGrupoProducto,
+                        'IdTipoProducto', tp.IdTipoProducto,
+                        'Producto', tp.Producto,
+                        'LongitudTela', tp.LongitudTela,
+                        'FechaAlta', tp.FechaAlta,
+                        'FechaBaja', tp.FechaBaja,
+                        'Observaciones', tp.Observaciones,
+                        'Estado', tp.Estado
+                    ),
+                "Precios", 
+                    JSON_OBJECT(
+                        'IdPrecio', tps.IdPrecio,
+                        'Precio', tps.Precio
+                    )
+            )
+        )
+	FROM tmp_Productos tp
+    INNER JOIN tmp_ultimosPrecios tps ON (tps.Tipo = 'P' AND tp.IdProducto = tps.IdReferencia)
+	);
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_Productos;
+    DROP TEMPORARY TABLE IF EXISTS tmp_ultimosPrecios;
+    DROP TEMPORARY TABLE IF EXISTS tmp_preciosProductos;
+
     
 
 END $$

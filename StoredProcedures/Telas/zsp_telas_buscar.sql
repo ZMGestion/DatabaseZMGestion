@@ -47,29 +47,57 @@ SALIR:BEGIN
 
     SET pTela = COALESCE(pTela,'');
 
+    DROP TEMPORARY TABLE IF EXISTS tmp_Telas;
+    DROP TEMPORARY TABLE IF EXISTS tmp_ultimosPrecios;
+    DROP TEMPORARY TABLE IF EXISTS tmp_preciosTelas;
+
+    CREATE TEMPORARY TABLE tmp_Telas 
+    AS SELECT *
+    FROM Telas 
+    WHERE
+	    Tela LIKE CONCAT(pTela, '%') AND
+        (Estado = pEstado OR pEstado = 'T') 
+	ORDER BY Tela;
+
+    CREATE TEMPORARY TABLE tmp_preciosTelas AS
+    SELECT IdReferencia, MAX(IdPrecio) latestId 
+    FROM Precios WHERE Tipo = 'T' GROUP BY IdReferencia;
+
+    CREATE TEMPORARY TABLE tmp_ultimosPrecios AS
+    SELECT pr.* 
+    FROM tmp_preciosTelas tmp
+    INNER JOIN Precios pr ON (pr.IdReferencia = tmp.IdReferencia AND pr.IdPrecio = tmp.latestId);
+
 
 
     SET pRespuesta = (SELECT JSON_ARRAYAGG(
                 JSON_OBJECT(
                     "Telas",
                     JSON_OBJECT(
-						'IdTela', IdTela,
-                        'Tela', Tela,
-                        'FechaAlta', FechaAlta,
-                        'FechaBaja', FechaBaja,
-                        'Observaciones', Observaciones,
-                        'Estado', Estado
-					)
+						'IdTela', tt.IdTela,
+                        'Tela', tt.Tela,
+                        'FechaAlta', tt.FechaAlta,
+                        'FechaBaja', tt.FechaBaja,
+                        'Observaciones', tt.Observaciones,
+                        'Estado',tt.Estado
+					),
+                    "Precios",
+                    JSON_OBJECT(
+                        'IdPrecio', tps.IdPrecio,
+                        'Precio', tps.Precio
+                    )
                 )
             )
 
-	FROM Telas 
-	WHERE	
-        Tela LIKE CONCAT(pTela, '%') AND
-        (Estado = pEstado OR pEstado = 'T') 
-	ORDER BY Tela);
+	FROM tmp_Telas tt
+    INNER JOIN tmp_ultimosPrecios tps ON (tps.Tipo = 'T' AND tt.IdTela = tps.IdReferencia)
+	);
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_Telas;
+    DROP TEMPORARY TABLE IF EXISTS tmp_ultimosPrecios;
+    DROP TEMPORARY TABLE IF EXISTS tmp_preciosTelas;
 
 END $$
 DELIMITER ;

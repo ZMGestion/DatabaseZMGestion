@@ -58,6 +58,7 @@ SALIR:BEGIN
     ) 
     FROM Precios 
     WHERE Tipo = 'P' AND IdReferencia = pIdProducto
+    ORDER BY IdPrecio DESC
     );
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
 
