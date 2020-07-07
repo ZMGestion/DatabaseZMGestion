@@ -14,7 +14,7 @@ SALIR:BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
-    -- Producto a crear
+    -- Producto a borrar
     DECLARE pProductos JSON;
     DECLARE pIdProducto int;
 
