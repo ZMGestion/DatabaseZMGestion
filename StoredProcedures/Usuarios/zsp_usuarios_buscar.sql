@@ -35,6 +35,11 @@ SALIR: BEGIN
     DECLARE pEstado char(1);
     DECLARE pTieneHijos char(1);
 
+    DECLARE pPaginaciones JSON;
+    DECLARE pPagina int;
+    DECLARE pLongitudPagina int;
+    DECLARE pOffset int;
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
@@ -70,6 +75,10 @@ SALIR: BEGIN
     SET pEstado = pUsuarios ->> "$.Estado";
     SET pNombresApellidos = CONCAT(pNombres, pApellidos);
 
+    SET pPaginaciones = pIn ->>"$.Paginaciones";
+    SET pPagina = pPaginaciones ->> "$.Pagina";
+    SET pLongitudPagina = pPaginaciones ->> "$.LongitudPagina";
+
 
     IF pEstado IS NULL OR pEstado = '' OR pEstado NOT IN ('A','B') THEN
 		SET pEstado = 'T';
@@ -82,6 +91,16 @@ SALIR: BEGIN
     -- IF pTieneHijos IS NULL OR pTieneHijos = '' OR pTieneHijos NOT IN ('S','N') THEN
 		SET pTieneHijos = 'T';
 	-- END IF;
+
+    IF pPagina IS NULL OR pPagina = 0 THEN
+        SET pPagina = 1;
+    END IF;
+
+    IF pLongitudPagina IS NULL OR pLongitudPagina = 0 THEN
+        SET pLongitudPagina = (SELECT CAST(Valor AS UNSIGNED) FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');
+    END IF;
+
+    SET pOffset = (pPagina - 1) * pLongitudPagina;
     
     SET pNombresApellidos = COALESCE(pNombresApellidos,'');
     SET pUsuario = COALESCE(pUsuario,'');
@@ -143,7 +162,9 @@ SALIR: BEGIN
                 (u.Estado = pEstado OR pEstado = 'T') AND
                 (u.EstadoCivil = pEstadoCivil OR pEstadoCivil = 'T') AND
                 IF(pTieneHijos = 'S', u.CantidadHijos > 0, IF(pTieneHijos = 'N', u.CantidadHijos = 0, pTieneHijos = 'T'))
-	ORDER BY	CONCAT(Apellidos, ' ', Nombres), Usuario);
+	ORDER BY	CONCAT(Apellidos, ' ', Nombres), Usuario
+    LIMIT pOffset, pLongitudPagina
+    );
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
 
