@@ -8,15 +8,16 @@ SALIR: BEGIN
         estado civil (C:Casado - S:Soltero - D:Divorciado - T:Todos), estado (A:Activo - B:Baja - T:Todos), rol (0:Todos los roles),
         ubicacion en la que trabaja (0:Todas las ubicaciones) y si tiene hijos o no (S:Si - N:No - T:Todos).
 	*/
-
+    -- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
     DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
+    -- Usuarios
     DECLARE pUsuarios JSON;
-    DECLARE pUsuariosEjecuta JSON;
     DECLARE pRespuesta JSON;
     DECLARE pIdUsuario smallint;
-    DECLARE pToken varchar(256);
     DECLARE pIdRol tinyint;
     DECLARE pIdUbicacion tinyint;
     DECLARE pIdTipoDocumento tinyint;
@@ -35,9 +36,11 @@ SALIR: BEGIN
     DECLARE pEstado char(1);
     DECLARE pTieneHijos char(1);
 
+    -- Paginacion
     DECLARE pPaginaciones JSON;
     DECLARE pPagina int;
     DECLARE pLongitudPagina int;
+    DECLARE pCantidadTotal int;
     DECLARE pOffset int;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -110,9 +113,10 @@ SALIR: BEGIN
     SET pIdRol = COALESCE(pIdRol,0);
     SET pIdUbicacion = COALESCE(pIdUbicacion,0);
 
-    DROP TEMPORARY TABLE IF EXISTS tmp_Resultado;
+    DROP TEMPORARY TABLE IF EXISTS tmp_ResultadosTotal;
+    DROP TEMPORARY TABLE IF EXISTS tmp_ResultadosFinal;
 
-    CREATE TEMPORARY TABLE tmp_Resultado AS
+    CREATE TEMPORARY TABLE tmp_ResultadosTotal AS
     SELECT  IdUsuario, u.IdRol , u.IdUbicacion, IdTipoDocumento, Documento, Nombres, Apellidos, EstadoCivil, Telefono, Email, Usuario, FechaUltIntento, 
             FechaNacimiento, CantidadHijos, FechaInicio, u.FechaAlta, u.FechaBaja, u.Estado , Rol, Ubicacion
     FROM		Usuarios u
@@ -131,11 +135,23 @@ SALIR: BEGIN
                 (u.Estado = pEstado OR pEstado = 'T') AND
                 (EstadoCivil = pEstadoCivil OR pEstadoCivil = 'T') AND
                 IF(pTieneHijos = 'S', u.CantidadHijos > 0, IF(pTieneHijos = 'N', CantidadHijos = 0, pTieneHijos = 'T'))
-	ORDER BY	CONCAT(Apellidos, ' ', Nombres), Usuario
-    LIMIT pOffset, pLongitudPagina;
+	ORDER BY	CONCAT(Apellidos, ' ', Nombres), Usuario;
 
+    -- Para devolver el total en paginaciones
+    SET pCantidadTotal = (SELECT COUNT(*) FROM tmp_ResultadosTotal);
+
+    CREATE TEMPORARY TABLE tmp_ResultadosFinal AS
+    SELECT * FROM tmp_ResultadosTotal
+    LIMIT pOffset, pLongitudPagina; 
     
-	SET pRespuesta = (SELECT JSON_ARRAYAGG(
+	SET pRespuesta = (SELECT 
+        JSON_OBJECT(
+            "Paginaciones", JSON_OBJECT(
+                "Pagina", pPagina,
+                "LongitudPagina", pLongitudPagina,
+                "CantidadTotal", pCantidadTotal
+            ),
+            "resultado", JSON_ARRAYAGG(
                 JSON_OBJECT(
                     "Usuarios",
                     JSON_OBJECT(
@@ -170,14 +186,14 @@ SALIR: BEGIN
 					)
                 )
             )
-
-	FROM		tmp_Resultado
+        )
+	FROM		tmp_ResultadosFinal
     );
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
 
-    DROP TEMPORARY TABLE IF EXISTS tmp_Resultado;
-
+    DROP TEMPORARY TABLE IF EXISTS tmp_ResultadosTotal;
+    DROP TEMPORARY TABLE IF EXISTS tmp_ResultadosFinal;
 
 END $$
 DELIMITER ;
