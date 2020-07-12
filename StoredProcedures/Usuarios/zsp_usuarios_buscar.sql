@@ -109,6 +109,31 @@ SALIR: BEGIN
     SET pTelefono = COALESCE(pTelefono,'');
     SET pIdRol = COALESCE(pIdRol,0);
     SET pIdUbicacion = COALESCE(pIdUbicacion,0);
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_Resultado;
+
+    CREATE TEMPORARY TABLE tmp_Resultado AS
+    SELECT  IdUsuario, u.IdRol , u.IdUbicacion, IdTipoDocumento, Documento, Nombres, Apellidos, EstadoCivil, Telefono, Email, Usuario, FechaUltIntento, 
+            FechaNacimiento, CantidadHijos, FechaInicio, u.FechaAlta, u.FechaBaja, u.Estado , Rol, Ubicacion
+    FROM		Usuarios u
+	INNER JOIN	Roles r ON u.IdRol = r.IdRol
+    INNER JOIN	Ubicaciones ub ON u.IdUbicacion = ub.IdUbicacion
+	WHERE		u.IdRol IS NOT NULL AND 
+				(
+                    CONCAT(Apellidos,',',Nombres) LIKE CONCAT('%', pNombresApellidos, '%') AND
+                    Usuario LIKE CONCAT(pUsuario, '%') AND
+                    Email LIKE CONCAT(pEmail, '%') AND
+                    Documento LIKE CONCAT(pDocumento, '%') AND
+                    Telefono LIKE CONCAT(pTelefono, '%')
+				) AND 
+                (u.IdRol = pIdRol OR pIdRol = 0) AND
+                (u.IdUbicacion = pIdUbicacion OR pIdUbicacion = 0) AND
+                (u.Estado = pEstado OR pEstado = 'T') AND
+                (EstadoCivil = pEstadoCivil OR pEstadoCivil = 'T') AND
+                IF(pTieneHijos = 'S', u.CantidadHijos > 0, IF(pTieneHijos = 'N', CantidadHijos = 0, pTieneHijos = 'T'))
+	ORDER BY	CONCAT(Apellidos, ' ', Nombres), Usuario
+    LIMIT pOffset, pLongitudPagina;
+
     
 	SET pRespuesta = (SELECT JSON_ARRAYAGG(
                 JSON_OBJECT(
@@ -129,9 +154,9 @@ SALIR: BEGIN
                         'FechaUltIntento', FechaUltIntento,
                         'FechaNacimiento', FechaNacimiento,
                         'FechaInicio', FechaInicio,
-                        'FechaAlta', u.FechaAlta,
-                        'FechaBaja', u.FechaBaja,
-                        'Estado', u.Estado
+                        'FechaAlta', FechaAlta,
+                        'FechaBaja', FechaBaja,
+                        'Estado', Estado
 					),
                     "Roles",
                     JSON_OBJECT(
@@ -146,27 +171,12 @@ SALIR: BEGIN
                 )
             )
 
-	FROM		Usuarios u
-	INNER JOIN	Roles r USING (IdRol)
-    INNER JOIN	Ubicaciones USING (IdUbicacion)
-	WHERE		IdRol IS NOT NULL AND 
-				(
-                    CONCAT(Apellidos,',',Nombres) LIKE CONCAT('%', pNombresApellidos, '%') AND
-                    Usuario LIKE CONCAT(pUsuario, '%') AND
-                    Email LIKE CONCAT(pEmail, '%') AND
-                    Documento LIKE CONCAT(pDocumento, '%') AND
-                    Telefono LIKE CONCAT(pTelefono, '%')
-				) AND 
-                (IdRol = pIdRol OR pIdRol = 0) AND
-                (IdUbicacion = pIdUbicacion OR pIdUbicacion = 0) AND
-                (u.Estado = pEstado OR pEstado = 'T') AND
-                (u.EstadoCivil = pEstadoCivil OR pEstadoCivil = 'T') AND
-                IF(pTieneHijos = 'S', u.CantidadHijos > 0, IF(pTieneHijos = 'N', u.CantidadHijos = 0, pTieneHijos = 'T'))
-	ORDER BY	CONCAT(Apellidos, ' ', Nombres), Usuario
-    LIMIT pOffset, pLongitudPagina
+	FROM		tmp_Resultado
     );
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_Resultado;
 
 
 END $$
