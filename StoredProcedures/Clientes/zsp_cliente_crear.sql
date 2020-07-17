@@ -158,6 +158,7 @@ SALIR:BEGIN
 
         IF pIdDomicilio IS NULL THEN
             SELECT pRespuesta pOut;
+            ROLLBACK;
             LEAVE SALIR;
         END IF;
         SET pDomicilios = (
