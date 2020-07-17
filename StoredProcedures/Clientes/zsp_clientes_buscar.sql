@@ -27,6 +27,13 @@ SALIR: BEGIN
     DECLARE pTelefono varchar(15);
     DECLARE pNombresApellidos varchar(90);
 
+    -- Paginacion
+    DECLARE pPaginaciones JSON;
+    DECLARE pPagina int;
+    DECLARE pLongitudPagina int;
+    DECLARE pCantidadTotal int;
+    DECLARE pOffset int;
+
     DECLARE pRespuesta JSON;
 
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
@@ -49,6 +56,10 @@ SALIR: BEGIN
     SET pTelefono = pClientes ->> "$.Telefono";
     SET pEmail = pClientes ->> "$.Email";
 
+    SET pPaginaciones = pIn ->>"$.Paginaciones";
+    SET pPagina = pPaginaciones ->> "$.Pagina";
+    SET pLongitudPagina = pPaginaciones ->> "$.LongitudPagina";
+
     SET pNombres = COALESCE(pNombres,'');
     SET pApellidos = COALESCE(pApellidos,'');
     SET pNombresApellidos = CONCAT(pNombres, pApellidos);
@@ -66,6 +77,16 @@ SALIR: BEGIN
         SET pIdPais = '**';
     END IF;
 
+    IF pPagina IS NULL OR pPagina = 0 THEN
+        SET pPagina = 1;
+    END IF;
+
+    IF pLongitudPagina IS NULL OR pLongitudPagina = 0 THEN
+        SET pLongitudPagina = (SELECT CAST(Valor AS UNSIGNED) FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');
+    END IF;
+
+    SET pOffset = (pPagina - 1) * pLongitudPagina;
+
     
     SET pNombresApellidos = COALESCE(pNombresApellidos,'');
     SET pRazonSocial = COALESCE(pRazonSocial,'');
@@ -73,8 +94,40 @@ SALIR: BEGIN
     SET pDocumento = COALESCE(pDocumento,'');
     SET pTelefono = COALESCE(pTelefono,'');
     SET pTipo = COALESCE(pTipo,'');
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_ResultadosTotal;
+    DROP TEMPORARY TABLE IF EXISTS tmp_ResultadosFinal;
+
+    CREATE TEMPORARY TABLE tmp_ResultadosTotal
+    SELECT *
+    FROM Clientes 
+    WHERE 
+        IF (Nombres IS NULL AND Apellidos IS NULL, TRUE, CONCAT(Apellidos,',',Nombres) LIKE CONCAT('%', pNombresApellidos, '%')) AND
+        Email LIKE CONCAT(pEmail, '%') AND
+        Documento LIKE CONCAT(pDocumento, '%') AND
+        Telefono LIKE CONCAT(pTelefono, '%') AND
+        IF (RazonSocial IS NULL, TRUE, RazonSocial LIKE CONCAT(pRazonSocial, '%')) AND 
+        (IdPais = pIdPais OR pIdPais = '**') AND
+        (Tipo = pTipo OR pTipo = 'T') AND
+        (Estado = pEstado OR pEstado = 'T') 
+	ORDER BY CONCAT(Apellidos, ' ', Nombres), RazonSocial;
+
+    -- Para devolver el total en paginaciones
+    SET pCantidadTotal = (SELECT COUNT(*) FROM tmp_ResultadosTotal);
+
+    CREATE TEMPORARY TABLE tmp_ResultadosFinal AS
+    SELECT * FROM tmp_ResultadosTotal
+    LIMIT pOffset, pLongitudPagina;
+
     
-	SET pRespuesta = (SELECT JSON_ARRAYAGG(
+	SET pRespuesta = (SELECT
+        JSON_OBJECT(
+            "Paginaciones", JSON_OBJECT(
+                "Pagina", pPagina,
+                "LongitudPagina", pLongitudPagina,
+                "CantidadTotal", pCantidadTotal
+            ),
+            "resultado", JSON_ARRAYAGG(
                 JSON_OBJECT(
                     "Clientes",
                     JSON_OBJECT(
@@ -95,22 +148,13 @@ SALIR: BEGIN
 					)
                 )
             )
-
-	FROM Clientes 
-	WHERE	
-        IF (Nombres IS NULL AND Apellidos IS NULL, TRUE, CONCAT(Apellidos,',',Nombres) LIKE CONCAT('%', pNombresApellidos, '%')) AND
-        Email LIKE CONCAT(pEmail, '%') AND
-        Documento LIKE CONCAT(pDocumento, '%') AND
-        Telefono LIKE CONCAT(pTelefono, '%') AND
-        IF (RazonSocial IS NULL, TRUE, RazonSocial LIKE CONCAT(pRazonSocial, '%')) AND 
-        (IdPais = pIdPais OR pIdPais = '**') AND
-        (Tipo = pTipo OR pTipo = 'T') AND
-        (Estado = pEstado OR pEstado = 'T') 
-	ORDER BY CONCAT(Apellidos, ' ', Nombres), RazonSocial);
+        )
+	FROM tmp_ResultadosFinal);
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
 
-
+    DROP TEMPORARY TABLE IF EXISTS tmp_ResultadosTotal;
+    DROP TEMPORARY TABLE IF EXISTS tmp_ResultadosFinal;
 
 END $$
 DELIMITER ;

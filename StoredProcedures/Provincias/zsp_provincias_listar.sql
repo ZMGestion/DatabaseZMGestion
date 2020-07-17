@@ -22,7 +22,8 @@ SALIR: BEGIN
             "Provincias",
             JSON_OBJECT(
                 'IdProvincia', IdProvincia,
-                'Provincia', Provincia
+                'Provincia', Provincia,
+                'IdPais', IdPais
             )
         )
     ) 

@@ -21,6 +21,13 @@ SALIR:BEGIN
     -- Para la respuesta
     DECLARE pRespuesta JSON;
 
+    -- Paginacion
+    DECLARE pPaginaciones JSON;
+    DECLARE pPagina int;
+    DECLARE pLongitudPagina int;
+    DECLARE pCantidadTotal int;
+    DECLARE pOffset int;
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
@@ -41,16 +48,33 @@ SALIR:BEGIN
     SET pTela = pTelas ->> "$.Tela";
     SET pEstado = pTelas ->> "$.Estado";
 
+    -- Extraigo atributos de la paginacion
+    SET pPaginaciones = pIn ->>"$.Paginaciones";
+    SET pPagina = pPaginaciones ->> "$.Pagina";
+    SET pLongitudPagina = pPaginaciones ->> "$.LongitudPagina";
+
     IF pEstado IS NULL OR pEstado = '' OR pEstado NOT IN ('A','B') THEN
 		SET pEstado = 'T';
 	END IF;
+
+    IF pPagina IS NULL OR pPagina = 0 THEN
+        SET pPagina = 1;
+    END IF;
+
+    IF pLongitudPagina IS NULL OR pLongitudPagina = 0 THEN
+        SET pLongitudPagina = (SELECT CAST(Valor AS UNSIGNED) FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');
+    END IF;
+
+    SET pOffset = (pPagina - 1) * pLongitudPagina;
 
     SET pTela = COALESCE(pTela,'');
 
     DROP TEMPORARY TABLE IF EXISTS tmp_Telas;
     DROP TEMPORARY TABLE IF EXISTS tmp_ultimosPrecios;
-    DROP TEMPORARY TABLE IF EXISTS tmp_preciosTelas;
+    DROP TEMPORARY TABLE IF EXISTS tmp_preciosTelas;    
+    DROP TEMPORARY TABLE IF EXISTS tmp_ResultadosFinal;
 
+    -- Resultset completo
     CREATE TEMPORARY TABLE tmp_Telas 
     AS SELECT *
     FROM Telas 
@@ -58,6 +82,14 @@ SALIR:BEGIN
 	    Tela LIKE CONCAT(pTela, '%') AND
         (Estado = pEstado OR pEstado = 'T') 
 	ORDER BY Tela;
+    
+    SET pCantidadTotal = (SELECT COUNT(*) FROM tmp_Telas);
+
+    -- Resultset paginado
+    CREATE TEMPORARY TABLE tmp_ResultadosFinal AS
+    SELECT * 
+    FROM tmp_Telas
+    LIMIT pOffset, pLongitudPagina;
 
     CREATE TEMPORARY TABLE tmp_preciosTelas AS
     SELECT IdReferencia, MAX(IdPrecio) latestId 
@@ -70,26 +102,36 @@ SALIR:BEGIN
 
 
 
-    SET pRespuesta = (SELECT JSON_ARRAYAGG(
-                JSON_OBJECT(
-                    "Telas",
+    SET pRespuesta = (SELECT
+        JSON_OBJECT(
+            "Paginaciones", JSON_OBJECT(
+                "Pagina", pPagina,
+                "LongitudPagina", pLongitudPagina,
+                "CantidadTotal", pCantidadTotal
+            ),
+            "resultado",
+                JSON_ARRAYAGG(
                     JSON_OBJECT(
-						'IdTela', tt.IdTela,
-                        'Tela', tt.Tela,
-                        'FechaAlta', tt.FechaAlta,
-                        'FechaBaja', tt.FechaBaja,
-                        'Observaciones', tt.Observaciones,
-                        'Estado',tt.Estado
-					),
-                    "Precios",
-                    JSON_OBJECT(
-                        'IdPrecio', tps.IdPrecio,
-                        'Precio', tps.Precio
+                        "Telas",
+                        JSON_OBJECT(
+                            'IdTela', tt.IdTela,
+                            'Tela', tt.Tela,
+                            'FechaAlta', tt.FechaAlta,
+                            'FechaBaja', tt.FechaBaja,
+                            'Observaciones', tt.Observaciones,
+                            'Estado',tt.Estado
+                        ),
+                        "Precios",
+                        JSON_OBJECT(
+                            'IdPrecio', tps.IdPrecio,
+                            'Precio', tps.Precio
+                        )
                     )
                 )
-            )
+        ) 
+            
 
-	FROM tmp_Telas tt
+	FROM tmp_ResultadosFinal tt
     INNER JOIN tmp_ultimosPrecios tps ON (tps.Tipo = 'T' AND tt.IdTela = tps.IdReferencia)
 	);
 
@@ -98,6 +140,7 @@ SALIR:BEGIN
     DROP TEMPORARY TABLE IF EXISTS tmp_Telas;
     DROP TEMPORARY TABLE IF EXISTS tmp_ultimosPrecios;
     DROP TEMPORARY TABLE IF EXISTS tmp_preciosTelas;
+    DROP TEMPORARY TABLE IF EXISTS tmp_ResultadosFinal;
 
 END $$
 DELIMITER ;
