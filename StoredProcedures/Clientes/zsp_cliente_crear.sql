@@ -151,33 +151,37 @@ SALIR:BEGIN
         
         INSERT INTO Clientes (IdCliente,IdPais,IdTipoDocumento,Documento,Tipo,FechaNacimiento,Nombres,Apellidos,RazonSocial,Email,Telefono,FechaAlta,FechaBaja,Estado) VALUES (0, pIdPais, pIdTipoDocumento, pDocumento, pTipo, pFechaNacimiento, pNombres, pApellidos, pRazonSocial, pEmail, pTelefono, NOW(), NULL, 'A');
         SET pIdCliente = (SELECT IdCliente FROM Clientes WHERE Email = pEmail);
-        
-        SET pInInterno = JSON_OBJECT("Domicilios", pDomicilios, "Clientes", JSON_OBJECT("IdCliente", pIdCliente));
-        -- Armar el JSON para crear el domicilio para el cliente recien creado.
-        CALL zsp_domicilio_crear_comun(pInInterno, pIdDomicilio, pRespuesta);
+        IF json_length(pDomicilios) = 0 THEN
+            SET pInInterno = JSON_OBJECT("Domicilios", pDomicilios, "Clientes", JSON_OBJECT("IdCliente", pIdCliente));
+            -- Armar el JSON para crear el domicilio para el cliente recien creado.
+            CALL zsp_domicilio_crear_comun(pInInterno, pIdDomicilio, pRespuesta);
 
-        IF pIdDomicilio IS NULL THEN
-            SELECT pRespuesta pOut;
-            ROLLBACK;
-            LEAVE SALIR;
+            IF pIdDomicilio IS NULL THEN
+                SELECT pRespuesta pOut;
+                ROLLBACK;
+                LEAVE SALIR;
+            END IF;
+            SET pDomicilios = (
+                SELECT CAST(
+                        COALESCE(
+                            JSON_OBJECT(
+                                'IdDomicilio', IdDomicilio,
+                                'IdCiudad', IdCiudad,
+                                'IdProvincia', IdProvincia,
+                                'IdPais', IdPais,
+                                'Domicilio', Domicilio,
+                                'CodigoPostal', CodigoPostal,
+                                'FechaAlta', FechaAlta,
+                                'Observaciones', Observaciones
+                            )
+                        ,'') AS JSON)
+                FROM	Domicilios
+                WHERE	IdDomicilio = pIdDomicilio
+            );
+        ELSE
+            SET pDomicilios = NULL;    
         END IF;
-        SET pDomicilios = (
-            SELECT CAST(
-                    COALESCE(
-                        JSON_OBJECT(
-                            'IdDomicilio', IdDomicilio,
-                            'IdCiudad', IdCiudad,
-                            'IdProvincia', IdProvincia,
-                            'IdPais', IdPais,
-                            'Domicilio', Domicilio,
-                            'CodigoPostal', CodigoPostal,
-                            'FechaAlta', FechaAlta,
-                            'Observaciones', Observaciones
-                        )
-                    ,'') AS JSON)
-            FROM	Domicilios
-            WHERE	IdDomicilio = pIdDomicilio
-        );
+        
 
         SET pRespuesta = (
             SELECT CAST(
