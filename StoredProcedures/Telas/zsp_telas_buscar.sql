@@ -124,7 +124,8 @@ SALIR:BEGIN
                         "Precios",
                         JSON_OBJECT(
                             'IdPrecio', tps.IdPrecio,
-                            'Precio', tps.Precio
+                            'Precio', tps.Precio,
+                            'FechaAlta', tps.FechaAlta
                         )
                     )
                 )
