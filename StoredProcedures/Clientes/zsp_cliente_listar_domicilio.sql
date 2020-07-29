@@ -32,21 +32,42 @@ SALIR:BEGIN
 
    SET pRespuesta  = (SELECT
         JSON_ARRAYAGG(
-            JSON_OBJECT('Domicilios',
+            JSON_OBJECT(
+                'Domicilios',
                     JSON_OBJECT(
                         'IdDomicilio', d.IdDomicilio, 
                         'IdCiudad', d.IdCiudad,
                         'IdProvincia', d.IdProvincia,
                         'IdPais', d.IdPais,
                         'Domicilio', d.Domicilio,
-                        'CodigoPostal', d.Domicilio,
+                        'CodigoPostal', d.CodigoPostal,
                         'FechaAlta', d.FechaAlta,
                         'Observaciones', d.Observaciones
+                ),
+                'Ciudades', JSON_OBJECT(
+                        'IdCiudad', c.IdCiudad,
+                        'IdProvincia', c.IdProvincia,
+                        'IdPais', c.IdPais,
+                        'Ciudad', c.Ciudad
+                ),
+                'Provincias', 
+                    JSON_OBJECT(
+                        'IdProvincia', pr.IdProvincia,
+                        'IdPais', pr.IdPais,
+                        'Provincia', pr.Provincia
+                    ),
+                'Paises', 
+                    JSON_OBJECT(
+                        'IdPais', p.IdPais,
+                        'Pais', p.Pais
                     )
-                )
+            )
         )  
     FROM	DomiciliosCliente dc
     INNER JOIN Domicilios d ON dc.IdDomicilio = d.IdDomicilio
+    INNER JOIN Ciudades c ON d.IdCiudad = c.IdCiudad
+    INNER JOIN Provincias pr ON pr.IdProvincia = c.IdProvincia
+    INNER JOIN Paises p ON p.IdPais = pr.IdPais
     WHERE dc.IdCliente = pIdCliente
     );    
     

@@ -72,6 +72,7 @@ SALIR:BEGIN
 
         IF pIdDomicilio IS NULL THEN
             SELECT pRespuestaSP pOut;
+            ROLLBACK;
             LEAVE SALIR;
         END IF;
 
