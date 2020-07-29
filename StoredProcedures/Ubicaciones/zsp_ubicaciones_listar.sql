@@ -29,11 +29,29 @@ SALIR: BEGIN
                     'CodigoPostal', d.CodigoPostal,
                     'FechaAlta', d.FechaAlta,
                     'Observaciones', d.Observaciones
-                ) 
+                ),
+                'Ciudades', JSON_OBJECT(
+                        'IdCiudad', c.IdCiudad,
+                        'IdProvincia', c.IdProvincia,
+                        'IdPais', c.IdPais,
+                        'Ciudad', c.Ciudad
+                    ),
+                'Provincias', JSON_OBJECT(
+                        'IdProvincia', pr.IdProvincia,
+                        'IdPais', pr.IdPais,
+                        'Provincia', pr.Provincia
+                ),
+                'Paises', JSON_OBJECT(
+                        'IdPais', p.IdPais,
+                        'Pais', p.Pais
+                )
             )
         )  
     FROM	Ubicaciones u
-    INNER JOIN Domicilios d USING(IdDomicilio)
+    INNER JOIN Domicilios d ON u.IdDomicilio = d.IdDomicilio
+    INNER JOIN Ciudades c ON d.IdCiudad = c.IdCiudad
+    INNER JOIN Provincias pr ON pr.IdProvincia = c.IdProvincia
+    INNER JOIN Paises p ON p.IdPais = pr.IdPais
     );    
     
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
