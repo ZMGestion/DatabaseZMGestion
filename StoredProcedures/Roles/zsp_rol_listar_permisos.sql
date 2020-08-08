@@ -8,30 +8,31 @@ BEGIN
 	*/
     DECLARE pRoles JSON;
     DECLARE pIdRol int;
-    DECLARE pRespuesta TEXT;
+    DECLARE pRespuesta JSON;
 
     SET pRoles = pIn ->> '$.Roles';
     SET pIdRol = pRoles ->> '$.IdRol';
 
+
+
     SET pRespuesta = (SELECT 
-        COALESCE(
             JSON_ARRAYAGG(
                 JSON_OBJECT('Permisos',
                     JSON_OBJECT(
-                        'IdPermiso', IdPermiso, 
+                        'IdPermiso', p.IdPermiso, 
                         'Permiso', Permiso,
                         'Procedimiento', Procedimiento,
                         'Descripcion', Descripcion
                     )
                 )
             )
-        ,'')
 	FROM Permisos p 
-    INNER JOIN PermisosRol pr USING(IdPermiso)
+    INNER JOIN PermisosRol pr ON p.IdPermiso = pr.IdPermiso
     WHERE pr.IdRol = pIdRol
     ORDER BY Procedimiento);
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+
 
 END $$
 DELIMITER ;
