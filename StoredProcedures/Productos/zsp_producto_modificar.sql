@@ -24,6 +24,11 @@ SALIR:BEGIN
     DECLARE pProducto varchar(80);
     DECLARE pLongitudTela decimal(10,2);
     DECLARE pObservaciones varchar(255);
+    
+    -- Precio
+    DECLARE pPrecios JSON;
+    DECLARE pIdPrecio int;
+    DECLARE pPrecio decimal(10,2);
 
     -- Para la respuesta
     DECLARE pRespuesta JSON;
@@ -89,7 +94,38 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
+    -- Extraigo atributos de Precio
+    SET pPrecios = pIn ->> "$.Precios";
+    SET pPrecio = pPrecios ->> "$.Precio";
+
+
+    IF pPrecio IS NULL OR pPrecio = 0.00 THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_PRECIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pPrecio < 0.00 THEN
+        SELECT f_generarRespuesta("ERROR_INVALIDO_PRECIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    SELECT f_dameUltimoPrecio('P', pIdProducto) INTO pIdPrecio;
+
     START TRANSACTION;
+
+    IF pPrecio <> (SELECT Precio FROM Precios WHERE IdPrecio = pIdPrecio) THEN
+        -- Verificamos que tenga permiso para modificar el precio
+        CALL zsp_usuario_tiene_permiso(pToken, 'zsp_producto_modificar_precio', pIdUsuarioEjecuta, pMensaje);
+        IF pMensaje != 'OK' THEN
+            SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+            LEAVE SALIR;
+        END IF;
+
+        INSERT INTO Precios (IdPrecio, Precio, Tipo, IdReferencia, FechaAlta) VALUES(0, pPrecio, 'P', pIdProducto, NOW());
+
+        SELECT f_dameUltimoPrecio('P', pIdProducto) INTO pIdPrecio;
+    END IF;
+
     
     UPDATE Productos
     SET IdCategoriaProducto = pIdCategoriaProducto,
@@ -123,7 +159,7 @@ SALIR:BEGIN
                 )
              AS JSON)
 			FROM	Productos p
-            INNER JOIN Precios ps ON (ps.Tipo = 'P' AND p.IdProducto = ps.IdReferencia)
+            INNER JOIN Precios ps ON (ps.Tipo = 'P' AND ps.IdReferencia = pIdPrecio)
 			WHERE	p.IdProducto = pIdProducto
         );
 	

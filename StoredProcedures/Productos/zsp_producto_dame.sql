@@ -67,6 +67,22 @@ SALIR:BEGIN
                         'Observaciones', p.Observaciones,
                         'Estado', p.Estado
                         ),
+                    "GruposProducto", 
+                            JSON_OBJECT(
+                                'IdGrupoProducto', gp.IdGrupoProducto,
+                                'Grupo', gp.Grupo,
+                                'Estado', gp.Estado
+                            ),
+                        "CategoriasProducto", 
+                            JSON_OBJECT(
+                                'IdCategoriaProducto', cp.IdCategoriaProducto,
+                                'Categoria', cp.Categoria
+                            ),
+                        "TiposProducto", 
+                            JSON_OBJECT(
+                                'IdCategoriaProducto', tp.IdTipoProducto,
+                                'TipoProducto', tp.TipoProducto
+                            ),
                     "Precios", JSON_OBJECT(
                         'IdPrecio', ps.IdPrecio,
                         'Precio', ps.Precio,
@@ -76,6 +92,9 @@ SALIR:BEGIN
              AS JSON)
 			FROM	Productos p
             INNER JOIN Precios ps ON (ps.Tipo = 'P' AND p.IdProducto = ps.IdReferencia)
+            INNER JOIN GruposProducto gp ON (gp.IdGrupoProducto = p.IdGrupoProducto)
+            INNER JOIN TiposProducto tp ON (p.IdTipoProducto = tp.IdTipoProducto)
+            INNER JOIN CategoriasProducto cp ON (cp.IdCategoriaProducto = p.IdCategoriaProducto)
 			WHERE	p.IdProducto = pIdProducto AND ps.IdPrecio = pIdPrecio
         );
 	
