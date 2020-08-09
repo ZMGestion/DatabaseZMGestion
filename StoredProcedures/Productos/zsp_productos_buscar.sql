@@ -90,14 +90,17 @@ SALIR:BEGIN
 
     -- Resultset completo
     CREATE TEMPORARY TABLE tmp_Productos
-    AS SELECT *
-    FROM Productos 
+    AS SELECT p.*, gp.Grupo AS Grupo, gp.Estado AS gpEstado, cp.Categoria AS Categoria, tp.TipoProducto AS TipoProducto
+    FROM Productos p
+    INNER JOIN GruposProducto gp ON (gp.IdGrupoProducto = p.IdGrupoProducto)
+    INNER JOIN TiposProducto tp ON (p.IdTipoProducto = tp.IdTipoProducto)
+    INNER JOIN CategoriasProducto cp ON (cp.IdCategoriaProducto = p.IdCategoriaProducto)
 	WHERE	
         Producto LIKE CONCAT(pProducto, '%') AND
-        (Estado = pEstado OR pEstado = 'T') AND
-        (IdTipoProducto = pIdTipoProducto OR pIdTipoProducto = 'T') AND
-        (IdCategoriaProducto = pIdCategoriaProducto OR pIdCategoriaProducto = 0) AND
-        (IdGrupoProducto = pIdGrupoProducto OR pIdGrupoProducto = 0)
+        (p.Estado = pEstado OR pEstado = 'T') AND
+        (p.IdTipoProducto = pIdTipoProducto OR pIdTipoProducto = 'T') AND
+        (p.IdCategoriaProducto = pIdCategoriaProducto OR pIdCategoriaProducto = 0) AND
+        (p.IdGrupoProducto = pIdGrupoProducto OR pIdGrupoProducto = 0)
 	ORDER BY Producto;
 
     SET pCantidadTotal = (SELECT COUNT(*) FROM tmp_Productos);
@@ -140,6 +143,22 @@ SALIR:BEGIN
                                 'FechaBaja', tp.FechaBaja,
                                 'Observaciones', tp.Observaciones,
                                 'Estado', tp.Estado
+                            ),
+                        "GruposProducto", 
+                            JSON_OBJECT(
+                                'IdGrupoProducto', tp.IdGrupoProducto,
+                                'Grupo', tp.Grupo,
+                                'Estado', tp.gpEstado
+                            ),
+                        "CategoriasProducto", 
+                            JSON_OBJECT(
+                                'IdCategoriaProducto', tp.IdCategoriaProducto,
+                                'Categoria', tp.Categoria
+                            ),
+                        "TiposProducto", 
+                            JSON_OBJECT(
+                                'IdCategoriaProducto', tp.IdTipoProducto,
+                                'TipoProducto', tp.TipoProducto
                             ),
                         "Precios", 
                             JSON_OBJECT(

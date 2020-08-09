@@ -19,8 +19,10 @@ SALIR: BEGIN
     DECLARE pTela varchar(60);
     DECLARE pObservaciones varchar(255);
 
-    -- Precio
+    -- Precio de la tela
+    DECLARE pPrecios JSON;
     DECLARE pIdPrecio int;
+    DECLARE pPrecio decimal(10,2);
 
     -- Para la respuesta
     DECLARE pRespuesta JSON;
@@ -44,6 +46,7 @@ SALIR: BEGIN
     SET pTelas = pIn ->> "$.Telas";
     SET pIdTela = pTelas ->> "$.IdTela";
     SET pTela = pTelas ->> "$.Tela";
+    
 
     IF pTela IS NULL OR pTela = '' THEN 
         SELECT f_generarRespuesta("ERROR_INGRESAR_TELA", NULL) pOut;
@@ -60,8 +63,38 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-    START TRANSACTION;
+    -- Extraigo atributos de Precio
+    SET pPrecios = pIn ->> "$.Precios";
+    SET pPrecio = pPrecios ->> "$.Precio";
+
+    IF pPrecio IS NULL OR pPrecio = 0.00 THEN
+        SELECT f_generarRespuesta("ERROR_INGRESAR_PRECIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF pPrecio < 0.00 THEN
+        SELECT f_generarRespuesta("ERROR_INVALIDO_PRECIO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
     
+
+    START TRANSACTION;
+
+    SELECT f_dameUltimoPrecio('T', pIdTela) INTO pIdPrecio;
+
+    IF pPrecio <> (SELECT Precio FROM Precios WHERE IdPrecio = pIdPrecio) THEN
+        -- Si modificó el precio revisamos que pueda hacerlo y lo modificamos
+        CALL zsp_usuario_tiene_permiso(pToken, 'zsp_tela_modificar_precio', pIdUsuarioEjecuta, pMensaje);
+        IF pMensaje != 'OK' THEN
+            SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+            LEAVE SALIR;
+        END IF;
+
+        INSERT INTO Precios (IdPrecio, Precio, Tipo, IdReferencia, FechaAlta) VALUES(0, pPrecio, 'T', pIdTela, NOW());
+
+        SELECT f_dameUltimoPrecio('T', pIdTela) INTO pIdPrecio;
+    END IF;
+
     UPDATE Telas
     SET Tela = pTela,
         Observaciones = NULLIF(pObservaciones, '')
