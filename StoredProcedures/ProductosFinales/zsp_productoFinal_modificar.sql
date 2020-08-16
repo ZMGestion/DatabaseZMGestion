@@ -1,11 +1,11 @@
-DROP PROCEDURE IF EXISTS `zsp_productoFinal_crear`;
+DROP PROCEDURE IF EXISTS `zsp_productoFinal_modificar`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_productoFinal_crear`(pIn JSON)
+CREATE PROCEDURE `zsp_productoFinal_modificar`(pIn JSON)
 SALIR:BEGIN
     /*
-        Procedimiento que permite crear un producto final. Controla que exista el producto, tela y lustre, y que no se repita la combinacion Producto, Tela y Lustre.
-        Devuelve el producto final, junto al producto, tela y lustre en 'respuesta' o el error en 'error'.
+        Procedimiento que permite modificar un producto final. Controla que exista el producto, tela y lustre, y que no se repita la combinacion Producto, Tela y Lustre.
+        Devuelve el producto final en 'respuesta' o el error en 'error'.
     */
 
     -- Control de permisos
@@ -34,7 +34,7 @@ SALIR:BEGIN
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
 
-    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_productoFinal_crear', pIdUsuarioEjecuta, pMensaje);
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_productoFinal_modificar', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
         SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
@@ -42,9 +42,15 @@ SALIR:BEGIN
 
     -- Extraigo atributos
     SET pProductosFinales = pIn ->> "$.ProductosFinales";
+    SET pIdProductoFinal = pProductosFinales ->> "$.IdProductoFinal";
     SET pIdProducto = pProductosFinales ->> "$.IdProducto";
     SET pIdTela = pProductosFinales ->> "$.IdTela";
     SET pIdLustre = pProductosFinales ->> "$.IdLustre";
+
+    IF pIdProductoFinal IS NULL OR NOT EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProductoFinal = pIdProductoFinal) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_PRODUCTOFINAL", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
 
     IF pIdProducto IS NULL OR NOT EXISTS (SELECT IdProducto FROM Productos WHERE IdProducto = pIdProducto) THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_PRODUCTO", NULL) pOut;
@@ -85,8 +91,11 @@ SALIR:BEGIN
 
 
     START TRANSACTION;
-        INSERT INTO ProductosFinales (IdProductoFinal, IdProducto, IdLustre, IdTela, FechaAlta, FechaBaja, Estado) VALUES(0, pIdProducto, pIdLustre, pIdTela, NOW(), NULL, 'A');
-        SET pIdProductoFinal = (SELECT MAX(IdProductoFinal) FROM ProductosFinales);
+        UPDATE ProductosFinales
+        SET IdProducto = pIdProducto,
+            IdTela = pIdTela,
+            IdLustre = pIdLustre
+        WHERE IdProductoFinal = pIdProductoFinal;
 
         SET pRespuesta = (
 			SELECT CAST(
@@ -110,3 +119,4 @@ SALIR:BEGIN
 
 END $$
 DELIMITER ;
+
