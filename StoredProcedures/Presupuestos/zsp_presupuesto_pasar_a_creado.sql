@@ -1,13 +1,13 @@
-DROP PROCEDURE IF EXISTS `zsp_presupuesto_crear`;
+DROP PROCEDURE IF EXISTS `zsp_presupuesto_pasar_a_creado`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_presupuesto_crear`(pIn JSON)
+CREATE PROCEDURE `zsp_presupuesto_pasar_a_creado`(pIn JSON)
 SALIR:BEGIN
     /*
-        Procedimiento que permite crear un presupuesto. 
-        Controla que exista el cliente para el cual se le esta creando, la ubicación donde se esta realizando y el usuario que lo está creando.
-        Crea al Presupuesto en Estado 'E'.
-        Devuelve el presupuesto en 'respuesta' o el error en 'error'.
+        Procedimiento que permite pasar un presupuesto a creado. 
+        Controla que exista presupuesto tenga al menos una linea de presupuesto asociada.
+        Cambia el Estado a 'C'.
+        Devuelve el presupuesto con sus lineas de presupuesto en 'respuesta' o el error en 'error'.
     */
 
     -- Control de permisos
@@ -19,14 +19,12 @@ SALIR:BEGIN
     -- Presupuesto a crear
     DECLARE pPresupuestos JSON;
     DECLARE pIdPresupuesto int;
-    DECLARE pIdCliente int;
-    DECLARE pIdUbicacion tinyint;
     DECLARE pPeriodoValidez tinyint;
-    DECLARE pObservaciones varchar(255);
 
 
     -- Para la respuesta
     DECLARE pRespuesta JSON;
+    DECLARE pLineasPresupuesto JSON;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -38,7 +36,7 @@ SALIR:BEGIN
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
 
-    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_presupuesto_crear', pIdUsuarioEjecuta, pMensaje);
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_presupuesto_pasar_a_creado', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
         SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
@@ -46,28 +44,31 @@ SALIR:BEGIN
 
     -- Extraigo atributos del Presupuesto
     SET pPresupuestos = pIn ->> "$.Presupuestos";
-    SET pIdCliente = pPresupuestos ->> "$.IdCliente";
-    SET pIdUbicacion = pPresupuestos ->> "$.IdUbicacion";
-    SET pObservaciones = pPresupuestos ->> "$.Observaciones";
+    SET pIdPresupuesto = pPresupuestos ->> "$.IdPresupuesto";
 
-    IF pIdCliente IS NULL OR NOT EXISTS (SELECT IdCliente FROM Clientes WHERE IdCliente = pIdCliente) THEN
-        SELECT f_generarRespuesta("ERROR_NOEXISTE_CLIENTE", NULL) pOut;
-        LEAVE SALIR;
-    END IF;
-
-    IF pIdUbicacion IS NULL OR NOT EXISTS (SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
-        SELECT f_generarRespuesta("ERROR_NOEXISTE_UBICACION", NULL) pOut;
+    IF pIdPresupuesto IS NULL OR NOT EXISTS (SELECT IdPresupuesto FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_PRESUPUESTO", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     SELECT Valor INTO pPeriodoValidez FROM Empresa WHERE Parametro = 'PERIODOVALIDEZ'; 
 
+    IF NOW() >= (SELECT DATE_ADD(FechaAlta, INTERVAL pPeriodoValidez DAY) FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto) THEN
+        SELECT f_generarRespuesta("ERROR_PRESUPUESTO_EXPIRADO", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF NOT EXISTS (SELECT IdLineaProducto FROM LineasProducto WHERE Tipo = 'P' AND IdReferencia = pIdPresupuesto) THEN
+        SELECT f_generarRespuesta("ERROR_PRESUPUESTO_SINLINEAS", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
 
     START TRANSACTION;
 
-    INSERT INTO Presupuestos (IdPresupuesto, IdCliente, IdVenta, IdUbicacion, IdUsuario, PeriodoValidez, FechaAlta, Observaciones, Estado) VALUES(0, pIdCliente, NULL, pIdUbicacion, pIdUsuarioEjecuta, pPeriodoValidez, NOW(), NULLIF(pObservaciones, ''), 'E');
-
-    SELECT MAX(IdPresupuesto) INTO pIdPresupuesto FROM Presupuestos;
+    UPDATE Presupuestos
+    SET Estado = 'C'
+    WHERE IdPresupuesto = pIdPresupuesto;
 
     SET pRespuesta = (
 			SELECT CAST(
