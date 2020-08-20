@@ -51,9 +51,11 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF pIdTela IS NOT NULL AND NOT EXISTS (SELECT IdTela FROM Telas WHERE IdTela = pIdTela) THEN
-        SELECT f_generarRespuesta("ERROR_NOEXISTE_TELA", NULL) pOut;
-        LEAVE SALIR;
+    IF pIdTela IS NOT NULL AND pIdTela <> 0 THEN
+        IF NOT EXISTS (SELECT IdTela FROM Telas WHERE IdTela = pIdTela) THEN
+            SELECT f_generarRespuesta("ERROR_NOEXISTE_TELA", NULL) pOut;
+            LEAVE SALIR;
+        END IF;
     END IF;
 
     IF pIdLustre IS NOT NULL AND NOT EXISTS (SELECT IdLustre FROM Lustres WHERE IdLustre = pIdLustre) THEN
@@ -63,7 +65,7 @@ SALIR:BEGIN
     
     -- Controlo que no se repita la combinacion Producto-Tela-Lustre o Producto-Lustre o Producto-Tela
     IF pIdLustre IS NOT NULL THEN
-        IF pIdTela IS NOT NULL THEN
+        IF pIdTela IS NOT NULL AND pIdTela <> 0 THEN
             IF EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela = pIdTela AND IdLustre = pIdLustre) THEN
                 SELECT f_generarRespuesta("ERROR_EXISTE_PRODUCTOFINAL", NULL) pOut;
                 LEAVE SALIR;
@@ -75,7 +77,7 @@ SALIR:BEGIN
             END IF;
         END IF;
     ELSE
-        IF pIdTela IS NOT NULL THEN
+        IF pIdTela IS NOT NULL AND pIdTela <> 0 THEN
             IF EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela = pIdTela) THEN
                 SELECT f_generarRespuesta("ERROR_EXISTE_PRODUCTOFINAL", NULL) pOut;
                 LEAVE SALIR;
@@ -85,7 +87,7 @@ SALIR:BEGIN
 
 
     START TRANSACTION;
-        INSERT INTO ProductosFinales (IdProductoFinal, IdProducto, IdLustre, IdTela, FechaAlta, FechaBaja, Estado) VALUES(0, pIdProducto, pIdLustre, pIdTela, NOW(), NULL, 'A');
+        INSERT INTO ProductosFinales (IdProductoFinal, IdProducto, IdLustre, IdTela, FechaAlta, FechaBaja, Estado) VALUES(0, pIdProducto, pIdLustre, IF(pIdTela = 0, NULL, pIdTela), NOW(), NULL, 'A');
         SET pIdProductoFinal = (SELECT MAX(IdProductoFinal) FROM ProductosFinales);
 
         SET pRespuesta = (
