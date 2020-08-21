@@ -163,9 +163,50 @@ SALIR:BEGIN
 
     -- Resultset de los presupuestos con sus montos totales
     CREATE TEMPORARY TABLE tmp_presupuestosPrecios AS
-    SELECT  tmpp.*, SUM(tmplpp.Cantidad * tmplpp.PrecioUnitario) AS PrecioTotal 
+    SELECT  
+		tmpp.*, 
+        SUM(tmplpp.Cantidad * tmplpp.PrecioUnitario) AS PrecioTotal, 
+        JSON_ARRAYAGG(
+			JSON_OBJECT(
+                "LineasProducto",
+                    JSON_OBJECT(
+                        "IdLineaProducto", tmplpp.IdLineaProducto,
+                        "IdProductoFinal", tmplpp.IdProductoFinal,
+                        "Cantidad", tmplpp.Cantidad,
+                        "PrecioUnitario", tmplpp.PrecioUnitario
+                    ),
+                "ProductosFinales",
+                    JSON_OBJECT(
+                        "IdProductoFinal", pf.IdProductoFinal,
+                        "IdProducto", pf.IdProducto,
+                        "IdTela", pf.IdTela,
+                        "IdLustre", pf.IdLustre,
+                        "FechaAlta", pf.FechaAlta
+                    ),
+                "Productos",
+                    JSON_OBJECT(
+                        "IdProducto", pr.IdProducto,
+                        "Producto", pr.Producto
+                    ),
+                "Telas",
+                    JSON_OBJECT(
+                        "IdTela", te.IdTela,
+                        "Tela", te.Tela
+                    ),
+                "Lustres",
+                    JSON_OBJECT(
+                        "IdLustre", lu.IdLustre,
+                        "Lustre", lu.Lustre
+                    )
+			)
+		) AS LineasPresupuesto
     FROM    tmp_PresupuestosPaginados tmpp
     INNER JOIN tmp_PresupuestosLineasPresupuesto tmplpp ON tmpp.IdPresupuesto = tmplpp.IdPresupuesto
+    INNER JOIN ProductosFinales pf ON tmplpp.IdProductoFinal = pf.IdProductoFinal
+    LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
+    LEFT JOIN Telas te ON pf.IdTela = te.IdTela
+    LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
+    
     GROUP BY tmpp.IdPresupuesto, tmpp.IdCliente, tmpp.IdVenta, tmpp.IdUbicacion, tmpp.IdUsuario, tmpp.PeriodoValidez, tmpp.FechaAlta, tmpp.Observaciones, tmpp.Estado;
 
     SET pResultado = (SELECT 
@@ -182,7 +223,8 @@ SALIR:BEGIN
                     'Observaciones', tmpp.Observaciones,
                     'Estado', tmpp.Estado,
                     '_PrecioTotal', tmpp.PrecioTotal
-                )
+                ),
+                "LineasPresupuesto", LineasPresupuesto
             )
         )
         FROM tmp_presupuestosPrecios tmpp
@@ -209,4 +251,3 @@ SALIR:BEGIN
 
 END $$
 DELIMITER ;
-
