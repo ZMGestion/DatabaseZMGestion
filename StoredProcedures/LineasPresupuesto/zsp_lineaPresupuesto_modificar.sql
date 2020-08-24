@@ -23,8 +23,6 @@ SALIR:BEGIN
     DECLARE pPrecioUnitario decimal(10,2);
     DECLARE pCantidad tinyint;
 
-
-
     -- Para la respuesta
     DECLARE pRespuesta JSON;
 
@@ -112,7 +110,6 @@ SALIR:BEGIN
 			FROM	LineasProducto lp
 			WHERE	lp.IdLineaProducto = pIdLineaProducto
         );
-	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
 
     COMMIT;

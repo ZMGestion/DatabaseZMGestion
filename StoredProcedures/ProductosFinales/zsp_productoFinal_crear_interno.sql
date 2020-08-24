@@ -1,0 +1,83 @@
+DROP PROCEDURE IF EXISTS `zsp_productoFinal_crear_interno`;
+
+DELIMITER $$
+CREATE PROCEDURE `zsp_productoFinal_crear_interno`(pIn JSON, out pIdProductoFinal int, out pError varchar(255))
+SALIR:BEGIN
+    /*
+        Procedimiento que permite crear un producto final. Controla que exista el producto, tela y lustre, y que no se repita la combinacion Producto, Tela y Lustre.
+        Devuelve el producto final, junto al producto, tela y lustre en 'respuesta' o el error en 'error'.
+    */
+
+
+    -- ProductoFinal
+    DECLARE pProductosFinales JSON;
+    DECLARE pIdProductoFinal int;
+    DECLARE pIdProducto int;
+    DECLARE pIdLustre tinyint;
+    DECLARE pIdTela smallint;
+
+     -- Para la respuesta
+    DECLARE pRespuesta JSON;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+	END;
+
+
+    -- Extraigo atributos
+    SET pProductosFinales = pIn ->> "$.ProductosFinales";
+    SET pIdProducto = pProductosFinales ->> "$.IdProducto";
+    SET pIdTela = pProductosFinales ->> "$.IdTela";
+    SET pIdLustre = pProductosFinales ->> "$.IdLustre";
+
+    IF pIdProducto IS NULL OR NOT EXISTS (SELECT IdProducto FROM Productos WHERE IdProducto = pIdProducto) THEN
+        SELECT "ERROR_NOEXISTE_PRODUCTO" INTO pError;
+        LEAVE SALIR;
+    END IF;
+
+    IF pIdTela IS NOT NULL AND pIdTela <> 0 THEN
+        IF NOT EXISTS (SELECT IdTela FROM Telas WHERE IdTela = pIdTela) THEN
+            SELECT "ERROR_NOEXISTE_TELA" INTO pError;
+            LEAVE SALIR;
+        END IF;
+    END IF;
+
+    IF pIdLustre IS NOT NULL AND NOT EXISTS (SELECT IdLustre FROM Lustres WHERE IdLustre = pIdLustre) THEN
+        SELECT "ERROR_NOEXISTE_LUSTRE" INTO pError;
+        LEAVE SALIR;
+    END IF;
+    
+    -- Controlo que no se repita la combinacion Producto-Tela-Lustre o Producto-Lustre o Producto-Tela
+    IF pIdLustre IS NOT NULL THEN
+        IF pIdTela IS NOT NULL AND pIdTela <> 0 THEN
+            IF EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela = pIdTela AND IdLustre = pIdLustre) THEN
+                SELECT "ERROR_EXISTE_PRODUCTOFINAL" INTO pError;
+                LEAVE SALIR;
+            END IF;
+        ELSE
+            IF EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdLustre = pIdLustre) THEN
+                SELECT "ERROR_EXISTE_PRODUCTOFINAL" INTO pError;
+                LEAVE SALIR;
+            END IF;
+        END IF;
+    ELSE
+        IF pIdTela IS NOT NULL AND pIdTela <> 0 THEN
+            IF EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela = pIdTela) THEN
+                SELECT "ERROR_EXISTE_PRODUCTOFINAL" INTO pError;
+                LEAVE SALIR;
+            END IF;
+        END IF;
+    END IF;
+
+
+    START TRANSACTION;
+        INSERT INTO ProductosFinales (IdProductoFinal, IdProducto, IdLustre, IdTela, FechaAlta, FechaBaja, Estado) VALUES(0, pIdProducto, pIdLustre, IF(pIdTela = 0, NULL, pIdTela), NOW(), NULL, 'A');
+        SET pIdProductoFinal = (SELECT MAX(IdProductoFinal) FROM ProductosFinales);
+        SET pError = NULL;
+    COMMIT;
+
+END $$
+DELIMITER ;
