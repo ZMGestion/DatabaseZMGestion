@@ -1,11 +1,10 @@
-DROP PROCEDURE IF EXISTS `zsp_presupuesto_listar_lineasPresupuesto`;
+DROP PROCEDURE IF EXISTS `zsp_presupuesto_dame`;
 
 DELIMITER $$
-CREATE PROCEDURE `zsp_presupuesto_listar_lineasPresupuesto`(pIn JSON)
+CREATE PROCEDURE `zsp_presupuesto_dame`(pIn JSON)
 SALIR:BEGIN
     /*
-        Procedimiento que permite listar las lineas de presupuesto de un presupuesto. 
-        Controla que exista el presupuesto.
+        Procedimiento que permite pasar instanciar un presupuesto a partir de su Id. 
         Devuelve el presupuesto con sus lineas de presupuesto en 'respuesta' o el error en 'error'.
     */
 
@@ -15,10 +14,9 @@ SALIR:BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
-    -- Presupuesto
+    -- Presupuestos
     DECLARE pPresupuestos JSON;
     DECLARE pIdPresupuesto int;
-
 
     -- Para la respuesta
     DECLARE pRespuesta JSON;
@@ -34,7 +32,7 @@ SALIR:BEGIN
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
 
-    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_presupuesto_listar_lineasPresupuesto', pIdUsuarioEjecuta, pMensaje);
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_presupuesto_dame', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
         SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
@@ -49,8 +47,33 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
+    CALL zsp_usuario_tiene_permiso(pToken, 'dame_presupuesto_ajeno', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        IF pIdPresupuesto IS NULL OR NOT EXISTS (SELECT IdPresupuesto FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto AND IdUsuario = pIdUsuarioEjecuta) THEN
+            SELECT f_generarRespuesta("ERROR_NOEXISTE_PRESUPUESTO", NULL) pOut;
+            LEAVE SALIR;
+        END IF;
+    ELSE
+        IF pIdPresupuesto IS NULL OR NOT EXISTS (SELECT IdPresupuesto FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto) THEN
+            SELECT f_generarRespuesta("ERROR_NOEXISTE_PRESUPUESTO", NULL) pOut;
+            LEAVE SALIR;
+        END IF;
+    END IF;
+
     SET pRespuesta = (
-        SELECT JSON_ARRAYAGG(
+        SELECT JSON_OBJECT(
+            "Presupuestos",  JSON_OBJECT(
+                'IdPresupuesto', p.IdPresupuesto,
+                'IdCliente', p.IdCliente,
+                'IdVenta', p.IdVenta,
+                'IdUbicacion', p.IdUbicacion,
+                'IdUsuario', p.IdUsuario,
+                'PeriodoValidez', p.PeriodoValidez,
+                'FechaAlta', p.FechaAlta,
+                'Observaciones', p.Observaciones,
+                'Estado', p.Estado
+            ),
+            "LineasPresupuesto", JSON_ARRAYAGG(
                 JSON_OBJECT(
                     "LineasProducto", JSON_OBJECT(
                         "IdLineaProducto", lp.IdLineaProducto,
@@ -81,6 +104,7 @@ SALIR:BEGIN
                     ), NULL)
                 )
             )
+        )
         FROM Presupuestos p
         LEFT JOIN LineasProducto lp ON p.IdPresupuesto = lp.IdReferencia AND lp.Tipo = 'P'
         LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
@@ -89,9 +113,6 @@ SALIR:BEGIN
         LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
         WHERE	p.IdPresupuesto = pIdPresupuesto
     );
-	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
-
-
 END $$
 DELIMITER ;

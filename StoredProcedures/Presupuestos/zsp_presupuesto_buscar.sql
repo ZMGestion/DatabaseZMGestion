@@ -90,11 +90,6 @@ SALIR:BEGIN
     SET pFechaInicio = pParametrosBusqueda ->> "$.FechaInicio";
     SET pFechaFin = pParametrosBusqueda ->> "$.FechaFin";
 
-    CALL zsp_usuario_tiene_permiso(pToken, 'buscar_presupuestos_ajenos', pIdUsuarioEjecuta, pMensaje);
-    IF pMensaje != 'OK' THEN
-        SET pIdUsuario = pIdUsuarioEjecuta;
-    END IF;
-
     SET pIdCliente = COALESCE(pIdCliente, 0);
     SET pIdUbicacion = COALESCE(pIdUbicacion, 0);
     SET pIdUsuario = COALESCE(pIdUsuario, 0);
@@ -102,7 +97,15 @@ SALIR:BEGIN
     SET pIdTela = COALESCE(pIdTela, 0);
     SET pIdLustre = COALESCE(pIdLustre, 0);
 
-    IF pEstado IS NULL OR pEstado = '' OR pEstado NOT IN ('C','E', 'V', 'X') THEN
+    CALL zsp_usuario_tiene_permiso(pToken, 'buscar_presupuestos_ajenos', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        IF pIdUsuarioEjecuta <> pIdUsuario THEN
+            SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+            LEAVE SALIR;
+        END IF;
+    END IF;
+
+    IF pEstado IS NULL OR pEstado = '' OR pEstado NOT IN ('C','E','V','X') THEN
 		SET pEstado = 'T';
 	END IF;
 
@@ -116,6 +119,10 @@ SALIR:BEGIN
 
     IF pLongitudPagina IS NULL OR pLongitudPagina = 0 THEN
         SET pLongitudPagina = (SELECT CAST(Valor AS UNSIGNED) FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');
+    END IF;
+
+    IF pFechaFin IS NULL THEN
+        SET pFechaFin = NOW();
     END IF;
 
     SET pOffset = (pPagina - 1) * pLongitudPagina;
@@ -135,8 +142,8 @@ SALIR:BEGIN
     AND (p.IdCliente = pIdCliente OR pIdCliente = 0)
     AND (p.IdUbicacion = pIdUbicacion OR pIdUbicacion = 0)
     AND (p.Estado = pEstado OR pEstado = 'T')
-    AND (p.FechaAlta <= pFechaLimite OR p.FechaAlta IS NOT NULL)
-    AND (p.FechaAlta BETWEEN pFechaInicio AND pFechaFin OR (p.FechaAlta >= pFechaInicio) OR (p.FechaAlta <= pFechaFin) OR (pFechaInicio IS NULL AND pFechaFin IS NULL));
+    AND (p.FechaAlta <= pFechaLimite OR pFechaLimite IS NULL)
+    AND (p.FechaAlta BETWEEN pFechaInicio AND pFechaFin);
     
     -- Lineas de presupuesto que cumplen con las condiciones
     CREATE TEMPORARY TABLE tmp_LineasPresupuesto AS 
@@ -148,10 +155,11 @@ SALIR:BEGIN
     AND (pf.IdTela = pIdTela OR pIdTela = 0)
     AND (pf.IdLustre = pIdLustre OR pIdLustre = 0);
 
+
     CREATE TEMPORARY TABLE tmp_PresupuestosLineasPresupuesto AS
     SELECT tmpp.*, tmplp.IdLineaProducto, tmplp.IdProductoFinal, tmplp.PrecioUnitario, tmplp.Cantidad
     FROM tmp_Presupuestos tmpp
-    INNER JOIN tmp_LineasPresupuesto tmplp ON (tmpp.IdPresupuesto = tmplp.IdReferencia AND tmplp.Tipo = 'P');
+    LEFT JOIN tmp_LineasPresupuesto tmplp ON (tmpp.IdPresupuesto = tmplp.IdReferencia AND tmplp.Tipo = 'P');
 
     SET pCantidadTotal = (SELECT COUNT(DISTINCT IdPresupuesto) FROM tmp_PresupuestosLineasPresupuesto);
 
@@ -165,15 +173,15 @@ SALIR:BEGIN
     CREATE TEMPORARY TABLE tmp_presupuestosPrecios AS
     SELECT  
 		tmpp.*, 
-        SUM(tmplpp.Cantidad * tmplpp.PrecioUnitario) AS PrecioTotal, 
+        SUM(lp.Cantidad * lp.PrecioUnitario) AS PrecioTotal, 
         JSON_ARRAYAGG(
 			JSON_OBJECT(
-                "LineasProducto",
+                "LineasProducto",  
                     JSON_OBJECT(
-                        "IdLineaProducto", tmplpp.IdLineaProducto,
-                        "IdProductoFinal", tmplpp.IdProductoFinal,
-                        "Cantidad", tmplpp.Cantidad,
-                        "PrecioUnitario", tmplpp.PrecioUnitario
+                        "IdLineaProducto", lp.IdLineaProducto,
+                        "IdProductoFinal", lp.IdProductoFinal,
+                        "Cantidad", lp.Cantidad,
+                        "PrecioUnitario", lp.PrecioUnitario
                     ),
                 "ProductosFinales",
                     JSON_OBJECT(
@@ -188,25 +196,24 @@ SALIR:BEGIN
                         "IdProducto", pr.IdProducto,
                         "Producto", pr.Producto
                     ),
-                "Telas",
+                "Telas",IF (te.IdTela  IS NOT NULL,
                     JSON_OBJECT(
                         "IdTela", te.IdTela,
                         "Tela", te.Tela
-                    ),
-                "Lustres",
+                    ),NULL),
+                "Lustres",IF (lu.IdLustre  IS NOT NULL,
                     JSON_OBJECT(
                         "IdLustre", lu.IdLustre,
                         "Lustre", lu.Lustre
-                    )
+                    ), NULL)
 			)
 		) AS LineasPresupuesto
     FROM    tmp_PresupuestosPaginados tmpp
-    INNER JOIN tmp_PresupuestosLineasPresupuesto tmplpp ON tmpp.IdPresupuesto = tmplpp.IdPresupuesto
-    INNER JOIN ProductosFinales pf ON tmplpp.IdProductoFinal = pf.IdProductoFinal
+    LEFT JOIN LineasProducto lp ON tmpp.IdPresupuesto = lp.IdReferencia AND lp.Tipo = 'P'
+    LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
     LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
     LEFT JOIN Telas te ON pf.IdTela = te.IdTela
     LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
-    
     GROUP BY tmpp.IdPresupuesto, tmpp.IdCliente, tmpp.IdVenta, tmpp.IdUbicacion, tmpp.IdUsuario, tmpp.PeriodoValidez, tmpp.FechaAlta, tmpp.Observaciones, tmpp.Estado;
 
     SET pResultado = (SELECT 
@@ -224,11 +231,10 @@ SALIR:BEGIN
                     'Estado', tmpp.Estado,
                     '_PrecioTotal', tmpp.PrecioTotal
                 ),
-                "LineasPresupuesto", LineasPresupuesto
+                "LineasPresupuesto", tmpp.LineasPresupuesto
             )
         )
         FROM tmp_presupuestosPrecios tmpp
-        GROUP BY tmpp.IdPresupuesto
     );
 
     SET pRespuesta = JSON_OBJECT(
