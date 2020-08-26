@@ -1,0 +1,78 @@
+{
+    "nuevo_sp": {
+        "scope": "sql",
+        "prefix": [
+            "procedure"
+        ],
+        "body": [
+            "DROP PROCEDURE IF EXISTS $TM_FILENAME_BASE;",
+            "DELIMITER $$",
+            "CREATE PROCEDURE $TM_FILENAME_BASE(pIn JSON)",
+            "SALIR: BEGIN",
+            "\t/*",
+            "\t\t${1:Descripción del sp}",
+            "",
+            "\t\tpIn = {${2:Datos entrada}}",
+            "",
+            "\t\tResultado = {${3:Datos salida}}",
+            "\t*/",
+            "\t$0",
+            "END $$",
+            "DELIMITER ;"
+        ],
+        "description": "Estructura de un nuevo SP"
+    },
+    "agregar_handler": {
+        "scope": "sql",
+        "prefix": [
+            "handler"
+        ],
+        "body": [
+            "DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN",
+            "\tGET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE;",
+            "\tROLLBACK;",
+            "\tIF @sqlstate != '45000' THEN",
+            "\t\tRESIGNAL SET MESSAGE_TEXT = 'DB_INTERNAL_ERROR';",
+            "\tELSE",
+            "\t\tRESIGNAL;",
+            "\tEND IF;",
+            "END;"
+        ],
+        "description": "Handler de una transacción"
+    },
+    "agregar_error": {
+        "scope": "sql",
+        "prefix": [
+            "error"
+        ],
+        "body": [
+            "SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = '$1';"
+        ],
+        "description": "Respuesta de error en un control"
+    },
+    "agregar_control_permisos": {
+        "scope": "sql",
+        "prefix": [
+            "permisos"
+        ],
+        "body": [
+            "DECLARE pToken VARCHAR(255);",
+            "DECLARE pIdUsuarioEjecuta INT;",
+            "",
+            "SET pToken = pIn->>'$.Token';",
+            "",
+            "CALL bsp_usuarios_tiene_permiso(pToken, '${1:Permiso}', pIdUsuarioEjecuta);"
+        ],
+        "description": "Control de permisos"
+    },
+    "agregar_paginacion": {
+        "scope": "sql",
+        "prefix": [
+            "paginacion"
+        ],
+        "body": [
+            "-- Paginacion\nDECLARE pPaginaciones JSON;\nDECLARE pPagina INT;\nDECLARE pLongitudPagina INT;\nDECLARE pCantidadTotal INT;\nDECLARE pOffset INT;\n\n-- ResultSet\nDECLARE pRespuesta JSON;\n\nSET pPaginaciones = pIn ->>'$.Paginaciones';\nSET pPagina = pPaginaciones ->> '$.Pagina';\nSET pLongitudPagina = pPaginaciones ->> '$.LongitudPagina';\n\nIF COALESCE(pPagina, 0) < 1 THEN\n\tSET pPagina = 1;\nEND IF;\n\nIF pLongitudPagina IS NULL OR pLongitudPagina = 0 THEN\n\tSET pLongitudPagina = (SELECT Valor FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');\nEND IF;\n\nSET pOffset = (pPagina - 1) * pLongitudPagina;\n\nDROP TEMPORARY TABLE IF EXISTS tmp_ResultadoBusquedaSinPaginar;\n\nCREATE TEMPORARY TABLE tmp_ResultadoBusquedaSinPaginar AS\n$1;\n\n-- Para devolver CantidadTotal en Paginaciones\nSET pCantidadTotal = (SELECT COUNT(*) FROM tmp_ResultadoBusquedaSinPaginar);\n\nSELECT\nJSON_OBJECT(\n\t'response', JSON_OBJECT(\n\t\t'Paginaciones', JSON_OBJECT(\n\t\t\t'LongitudPagina', pLongitudPagina,\n\t\t\t'CantidadTotal', pCantidadTotal,\n\t\t\t'Pagina', pPagina\n\t\t),\n\t\t'$2',\n\t\tJSON_ARRAYAGG(\n\t\t\tJSON_OBJECT(\n\t\t\t\t'$3', $4\n\t\t\t)\n\t\t)\n\t)\n)\nFROM (\n\tSELECT *\n\tFROM tmp_ResultadoBusquedaSinPaginar\n\tLIMIT pOffset, pLongitudPagina\n);\n\nDROP TEMPORARY TABLE IF EXISTS tmp_ResultadoBusquedaSinPaginar;\n\n"
+        ],
+        "description": "Todo lo necesario para paginar"
+    }
+}
