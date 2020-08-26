@@ -7,7 +7,7 @@ SALIR:BEGIN
         Procedimiento que permite crear una linea de presupuesto. 
         Controla que exista el cliente para el cual se le esta creando, la ubicación donde se esta realizando y el usuario que lo está creando.
         En caso que el producto final no exista llama al zsp_productoFinal_crear_interno
-        Devuelve el presupuesto en 'respuesta' o el error en 'error'.
+        Devuelve la linea de producto en 'respuesta' o el error en 'error'.
     */
 
     -- Control de permisos

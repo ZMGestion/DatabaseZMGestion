@@ -5,8 +5,9 @@ CREATE PROCEDURE `zsp_lineaPresupuesto_modificar`(pIn JSON)
 SALIR:BEGIN
     /*
         Procedimiento que permite modificar una linea de presupuesto. 
-        Controla que la linea de presupuesto este en estado 'Pendiente', que exista el cliente para el cual se le esta creando, la ubicación donde se esta realizando y el usuario que lo está creando.
-        Devuelve el presupuesto en 'respuesta' o el error en 'error'.
+        Controla que la linea de presupuesto este en estado 'Pendiente', que exista el cliente para el cual se le esta creando, la ubicación donde se esta realizando y el usuario que lo está creando. 
+        En caso que el producto final no exista llama al zsp_productoFinal_crear_interno. 
+        Devuelve la linea de producto en 'respuesta' o el error en 'error'.
     */
 
     -- Control de permisos
@@ -15,13 +16,22 @@ SALIR:BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
-    -- Linea de presupuesto a crear
+    -- Linea de presupuesto
     DECLARE pLineasProducto JSON;
     DECLARE pIdLineaProducto bigint;
     DECLARE pIdPresupuesto int;
     DECLARE pIdProductoFinal int;
     DECLARE pPrecioUnitario decimal(10,2);
     DECLARE pCantidad tinyint;
+
+    -- ProductoFinal
+    DECLARE pProductosFinales JSON;
+    DECLARE pIdProducto int;
+    DECLARE pIdTela smallint;
+    DECLARE pIdLustre tinyint;
+
+    -- Llamado a zsp_productoFinal_crear_interno
+    DECLARE pError varchar(255);
 
     -- Para la respuesta
     DECLARE pRespuesta JSON;
@@ -50,14 +60,25 @@ SALIR:BEGIN
     SET pPrecioUnitario = pLineasProducto ->> "$.PrecioUnitario";
     SET pCantidad = pLineasProducto ->> "$.Cantidad";
 
+    -- Extraigo atributos del producto final
+    SET pProductosFinales = pIn ->> "$.ProductosFinales";
+    SET pIdProducto = pProductosFinales ->> "$.IdProducto";
+    SET pIdTela = pProductosFinales ->> "$.IdTela";
+    SET pIdLustre = pProductosFinales ->> "$.IdLustre";
+
     IF pIdLineaProducto IS NULL OR NOT EXISTS (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_LINEAPRESUPUESTO", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
-    IF pIdProductoFinal IS NULL OR NOT EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProductoFinal = pIdProductoFinal) THEN
-        SELECT f_generarRespuesta("ERROR_NOEXISTE_PRODUCTOFINAL", NULL) pOut;
-        LEAVE SALIR;
+    IF NOT EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela = pIdTela AND IdLustre = pIdLustre) THEN
+        CALL zsp_productoFinal_crear_interno(pIn, pIdProductoFinal, pError);
+        IF pError IS NOT NULL THEN
+            SELECT f_generarRespuesta(pError, NULL) pOut;
+            LEAVE SALIR;
+        END IF;
+    ELSE 
+        SELECT IdProductoFinal INTO pIdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela = pIdTela AND IdLustre = pIdLustre;
     END IF;
 
     IF EXISTS (SELECT IdProductoFinal FROM LineasProducto WHERE IdReferencia = pIdPresupuesto AND Tipo = 'P' AND IdProductoFinal = pIdProductoFinal AND IdLineaProducto <> pIdLineaProducto) THEN
@@ -82,34 +103,32 @@ SALIR:BEGIN
     END IF;
 
     START TRANSACTION;
+        UPDATE LineasProducto
+        SET IdProductoFinal = pIdProductoFinal,
+            PrecioUnitario = pPrecioUnitario,
+            Cantidad = pCantidad
+        WHERE IdLineaProducto = pIdLineaProducto;
 
-    UPDATE LineasProducto
-    SET IdProductoFinal = pIdLineaProducto,
-        PrecioUnitario = pPrecioUnitario,
-        Cantidad = pCantidad
-    WHERE IdLineaProducto = pIdLineaProducto;
-
-    SET pRespuesta = (
-			SELECT CAST(
-                JSON_OBJECT(
-                    "LineasProducto",  JSON_OBJECT(
-                        'IdLineaProducto', lp.IdLineaProducto,
-                        'IdLineaProductoPadre', lp.IdLineaProductoPadre,
-                        'IdProductoFinal', lp.IdProductoFinal,
-                        'IdUbicacion', lp.IdUbicacion,
-                        'IdReferencia', lp.IdReferencia,
-                        'Tipo', lp.Tipo,
-                        'PrecioUnitario', lp.PrecioUnitario,
-                        'Cantidad', lp.Cantidad,
-                        'FechaAlta', lp.FechaAlta,
-                        'FechaCancelacion', lp.FechaCancelacion,
-                        'Estado', lp.Estado
-                    ) 
-                )
-             AS JSON)
-			FROM	LineasProducto lp
-			WHERE	lp.IdLineaProducto = pIdLineaProducto
-        );
+        SET pRespuesta = (
+                SELECT CAST(
+                    JSON_OBJECT(
+                        "LineasProducto",  JSON_OBJECT(
+                            'IdLineaProducto', lp.IdLineaProducto,
+                            'IdLineaProductoPadre', lp.IdLineaProductoPadre,
+                            'IdProductoFinal', lp.IdProductoFinal,
+                            'IdUbicacion', lp.IdUbicacion,
+                            'IdReferencia', lp.IdReferencia,
+                            'Tipo', lp.Tipo,
+                            'PrecioUnitario', lp.PrecioUnitario,
+                            'Cantidad', lp.Cantidad,
+                            'FechaAlta', lp.FechaAlta,
+                            'FechaCancelacion', lp.FechaCancelacion,
+                            'Estado', lp.Estado
+                        ) 
+                    )
+                AS JSON)
+        FROM	LineasProducto lp
+        WHERE	lp.IdLineaProducto = pIdLineaProducto);
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
 
     COMMIT;

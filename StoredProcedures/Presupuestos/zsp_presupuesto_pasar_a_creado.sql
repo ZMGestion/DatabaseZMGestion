@@ -16,7 +16,7 @@ SALIR:BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
-    -- Presupuesto a crear
+    -- Presupuesto
     DECLARE pPresupuestos JSON;
     DECLARE pIdPresupuesto int;
     DECLARE pPeriodoValidez tinyint;
