@@ -12,9 +12,6 @@
             "\t/*",
             "\t\t${1:Descripción del sp}",
             "",
-            "\t\tpIn = {${2:Datos entrada}}",
-            "",
-            "\t\tResultado = {${3:Datos salida}}",
             "\t*/",
             "\t$0",
             "END $$",
@@ -28,14 +25,11 @@
             "handler"
         ],
         "body": [
-            "DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN",
-            "\tGET DIAGNOSTICS CONDITION 1 @sqlstate = RETURNED_SQLSTATE;",
+            "DECLARE EXIT HANDLER FOR SQLEXCEPTION",
+            "BEGIN",
+            "\tSHOW ERRORS;",
+            "\tSELECT f_generarRespuesta(\"ERROR_TRANSACCION\", NULL) pOut;",
             "\tROLLBACK;",
-            "\tIF @sqlstate != '45000' THEN",
-            "\t\tRESIGNAL SET MESSAGE_TEXT = 'DB_INTERNAL_ERROR';",
-            "\tELSE",
-            "\t\tRESIGNAL;",
-            "\tEND IF;",
             "END;"
         ],
         "description": "Handler de una transacción"
@@ -46,9 +40,18 @@
             "error"
         ],
         "body": [
-            "SIGNAL SQLSTATE VALUE '45000' SET MESSAGE_TEXT = '$1';"
+            "SELECT f_generarRespuesta(\"$1\", NULL) pOut;",
+            "LEAVE SALIR;"
         ],
         "description": "Respuesta de error en un control"
+    },
+    "agregar_respuesta": {
+        "scope": "sql",
+        "prefix": "respuesta",
+        "body": [
+            "SELECT f_generarRespuesta(\"$1\", NULL) pOut;",
+        ],
+        "description": "Respuesta"
     },
     "agregar_control_permisos": {
         "scope": "sql",
@@ -56,14 +59,33 @@
             "permisos"
         ],
         "body": [
-            "DECLARE pToken VARCHAR(255);",
-            "DECLARE pIdUsuarioEjecuta INT;",
-            "",
-            "SET pToken = pIn->>'$.Token';",
-            "",
-            "CALL bsp_usuarios_tiene_permiso(pToken, '${1:Permiso}', pIdUsuarioEjecuta);"
+            "-- Control de permisos",
+            "DECLARE pUsuariosEjecuta JSON;",
+            "DECLARE pIdUsuarioEjecuta smallint;",
+            "DECLARE pToken varchar(256);",
+            "DECLARE pMensaje text;\n",
+
+            "\nSET pUsuariosEjecuta = pIn ->> \"$.UsuariosEjecuta\";",
+            "SET pToken = pUsuariosEjecuta ->> \"$.Token\";\n",
+
+            "CALL zsp_usuario_tiene_permiso(pToken, '$TM_FILENAME_BASE', pIdUsuarioEjecuta, pMensaje);",
+            "IF pMensaje != 'OK' THEN",
+            "\tSELECT f_generarRespuesta(pMensaje, NULL) pOut;",
+            "\tLEAVE SALIR;",
+            "END IF;",
         ],
         "description": "Control de permisos"
+    },
+    "transaction": {
+        "scope": "sql",
+        "prefix": [
+            "transaction"
+        ],
+        "body": [
+            "START TRANSACTION;\n\n",
+            "COMMIT;",
+        ],
+        "description": "Definicion de una transaccion"
     },
     "agregar_paginacion": {
         "scope": "sql",

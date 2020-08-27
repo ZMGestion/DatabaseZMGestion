@@ -12,6 +12,7 @@ SALIR:BEGIN
         - Telas(0:Todos),
         - Lustre (0: Todos),
         - Ubicación (0:Todas las ubicaciones)
+        - Periodo de fechas
         Devuelve una lista de presupuestos en 'respuesta' o el error en 'error'
     */
 
@@ -38,8 +39,8 @@ SALIR:BEGIN
 
     -- Parametros busqueda
     DECLARE pParametrosBusqueda JSON;
-    DECLARE pFechaInicio datetime;
-    DECLARE pFechaFin datetime;
+    DECLARE pFechaInicio date;
+    DECLARE pFechaFin date;
 
     -- Productos Final
     DECLARE pProductosFinales JSON;
@@ -87,8 +88,15 @@ SALIR:BEGIN
 
     -- Extraigo atributos de los parametros de busqueda
     SET pParametrosBusqueda = pIn ->>"$.ParametrosBusqueda";
-    SET pFechaInicio = pParametrosBusqueda ->> "$.FechaInicio";
-    SET pFechaFin = pParametrosBusqueda ->> "$.FechaFin";
+    IF CHAR_LENGTH(COALESCE(pParametrosBusqueda ->>"$.FechaInicio", '')) > 0 THEN
+        SET pFechaInicio = pParametrosBusqueda ->> "$.FechaInicio";
+    END IF;
+    IF CHAR_LENGTH(COALESCE(pParametrosBusqueda ->>"$.FechaFin", '')) = 0 THEN
+        SET pFechaFin = CURRENT_DATE();
+    ELSE
+        SET pFechaFin = pParametrosBusqueda ->> "$.FechaFin";
+    END IF;
+    
 
     SET pIdCliente = COALESCE(pIdCliente, 0);
     SET pIdUbicacion = COALESCE(pIdUbicacion, 0);
@@ -121,52 +129,35 @@ SALIR:BEGIN
         SET pLongitudPagina = (SELECT CAST(Valor AS UNSIGNED) FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');
     END IF;
 
-    IF pFechaFin IS NULL THEN
-        SET pFechaFin = NOW();
-    END IF;
-
     SET pOffset = (pPagina - 1) * pLongitudPagina;
 
     DROP TEMPORARY TABLE IF EXISTS tmp_Presupuestos;
-    DROP TEMPORARY TABLE IF EXISTS tmp_LineasPresupuesto;
-    DROP TEMPORARY TABLE IF EXISTS tmp_PresupuestosLineasPresupuesto;
     DROP TEMPORARY TABLE IF EXISTS tmp_PresupuestosPaginados;
     DROP TEMPORARY TABLE IF EXISTS tmp_presupuestosPrecios;
 
 
-    -- Presupuestos que cumplen con las condiciones
+-- Presupuestos que cumplen con las condiciones
     CREATE TEMPORARY TABLE tmp_Presupuestos
-    AS SELECT *
+    AS SELECT p.*
     FROM Presupuestos p
+    LEFT JOIN LineasProducto lp ON (lp.IdReferencia = p.IdPresupuesto AND lp.Tipo = 'P')
+    LEFT JOIN ProductosFinales pf ON (lp.IdProductoFinal = pf.IdProductoFinal)
 	WHERE (p.IdUsuario = pIdUsuario OR pIdUsuario = 0)
     AND (p.IdCliente = pIdCliente OR pIdCliente = 0)
     AND (p.IdUbicacion = pIdUbicacion OR pIdUbicacion = 0)
     AND (p.Estado = pEstado OR pEstado = 'T')
     AND (p.FechaAlta <= pFechaLimite OR pFechaLimite IS NULL)
-    AND (p.FechaAlta BETWEEN pFechaInicio AND pFechaFin);
-    
-    -- Lineas de presupuesto que cumplen con las condiciones
-    CREATE TEMPORARY TABLE tmp_LineasPresupuesto AS 
-    SELECT lp.*
-    FROM LineasProducto lp
-    INNER JOIN ProductosFinales pf ON (lp.IdProductoFinal = pf.IdProductoFinal)
-    WHERE lp.Tipo = 'P'
+    AND (p.FechaAlta <= pFechaFin OR (pFechaInicio IS NOT NULL AND p.FechaAlta BETWEEN pFechaInicio AND pFechaFin))
     AND (pf.IdProducto = pIdProducto OR pIdProducto = 0)
     AND (pf.IdTela = pIdTela OR pIdTela = 0)
     AND (pf.IdLustre = pIdLustre OR pIdLustre = 0);
 
-
-    CREATE TEMPORARY TABLE tmp_PresupuestosLineasPresupuesto AS
-    SELECT tmpp.*, tmplp.IdLineaProducto, tmplp.IdProductoFinal, tmplp.PrecioUnitario, tmplp.Cantidad
-    FROM tmp_Presupuestos tmpp
-    LEFT JOIN tmp_LineasPresupuesto tmplp ON (tmpp.IdPresupuesto = tmplp.IdReferencia AND tmplp.Tipo = 'P');
-
-    SET pCantidadTotal = (SELECT COUNT(DISTINCT IdPresupuesto) FROM tmp_PresupuestosLineasPresupuesto);
+    SET pCantidadTotal = (SELECT COUNT(DISTINCT IdPresupuesto) FROM tmp_Presupuestos);
 
     -- Presupuestos buscados paginados
     CREATE TEMPORARY TABLE tmp_PresupuestosPaginados AS
     SELECT DISTINCT IdPresupuesto, IdCliente, IdVenta, IdUbicacion, IdUsuario, PeriodoValidez, FechaAlta, Observaciones, Estado
-    FROM tmp_PresupuestosLineasPresupuesto
+    FROM tmp_Presupuestos
     LIMIT pOffset, pLongitudPagina;
 
     -- Resultset de los presupuestos con sus montos totales
@@ -174,7 +165,7 @@ SALIR:BEGIN
     SELECT  
 		tmpp.*, 
         SUM(lp.Cantidad * lp.PrecioUnitario) AS PrecioTotal, 
-        JSON_ARRAYAGG(
+        IF(COUNT(lp.IdLineaProducto) > 0, JSON_ARRAYAGG(
 			JSON_OBJECT(
                 "LineasProducto",  
                     JSON_OBJECT(
@@ -207,7 +198,7 @@ SALIR:BEGIN
                         "Lustre", lu.Lustre
                     ), NULL)
 			)
-		) AS LineasPresupuesto
+		), NULL) AS LineasPresupuesto
     FROM    tmp_PresupuestosPaginados tmpp
     LEFT JOIN LineasProducto lp ON tmpp.IdPresupuesto = lp.IdReferencia AND lp.Tipo = 'P'
     LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal

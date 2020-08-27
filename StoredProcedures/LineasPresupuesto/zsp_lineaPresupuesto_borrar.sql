@@ -15,7 +15,7 @@ SALIR:BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
-    -- Linea de presupuesto a crear
+    -- Linea de presupuesto
     DECLARE pLineasProducto JSON;
     DECLARE pIdLineaProducto bigint;
 
@@ -47,7 +47,8 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF (SELECT Estado FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) <> 'P' THEN
+
+    IF (SELECT Estado FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) <> 'P' AND THEN
         SELECT f_generarRespuesta("ERROR_BORRAR_LINEAPRESUPUESTO", NULL) pOut;
         LEAVE SALIR;
     END IF;
