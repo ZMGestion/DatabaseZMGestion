@@ -231,10 +231,25 @@ SALIR:BEGIN
                     'Estado', tmpp.Estado,
                     '_PrecioTotal', tmpp.PrecioTotal
                 ),
+                "Clientes", JSON_OBJECT(
+                    'Nombres', c.Nombres,
+                    'Apellidos', c.Apellidos,
+                    'RazonSocial', c.RazonSocial
+                ),
+                "Usuarios", JSON_OBJECT(
+                    "Nombres", u.Nombres,
+                    "Apellidos", u.Apellidos
+                ),
+                "Ubicaciones", JSON_OBJECT(
+                    "Ubicacion", ub.Ubicacion
+                ),
                 "LineasPresupuesto", tmpp.LineasPresupuesto
             )
         )
         FROM tmp_presupuestosPrecios tmpp
+        INNER JOIN Clientes c ON tmpp.IdCliente = c.IdCliente
+        INNER JOIN Usuarios u ON tmpp.IdUsuario = u.IdUsuario
+        INNER JOIN Ubicaciones ub ON tmpp.IdUbicacion = ub.IdUbicacion
     );
 
     SET pRespuesta = JSON_OBJECT(
