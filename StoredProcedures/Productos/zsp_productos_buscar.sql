@@ -157,7 +157,7 @@ SALIR:BEGIN
                             ),
                         "TiposProducto", 
                             JSON_OBJECT(
-                                'IdCategoriaProducto', tp.IdTipoProducto,
+                                'IdTipoProducto', tp.IdTipoProducto,
                                 'TipoProducto', tp.TipoProducto
                             ),
                         "Precios", 

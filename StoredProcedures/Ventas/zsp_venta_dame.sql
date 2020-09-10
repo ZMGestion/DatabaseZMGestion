@@ -1,22 +1,20 @@
-DROP PROCEDURE IF EXISTS `zsp_presupuesto_dame`;
-
+DROP PROCEDURE IF EXISTS zsp_venta_dame;
 DELIMITER $$
-CREATE PROCEDURE `zsp_presupuesto_dame`(pIn JSON)
-SALIR:BEGIN
+CREATE PROCEDURE zsp_venta_dame(pIn JSON)
+SALIR: BEGIN
     /*
-        Procedimiento que permite pasar instanciar un presupuesto a partir de su Id. 
-        Devuelve el presupuesto con sus lineas de presupuesto en 'respuesta' o el error en 'error'.
-    */
+        Procedimiento que permite pasar instanciar una venta a partir de su Id. 
+        Devuelve la venta con sus lineas de venta en 'respuesta' o el error en 'error'.
 
-    -- Control de permisos
+    */-- Control de permisos
     DECLARE pUsuariosEjecuta JSON;
     DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
-    -- Presupuestos
-    DECLARE pPresupuestos JSON;
-    DECLARE pIdPresupuesto int;
+    -- Ventas
+    DECLARE pVentas JSON;
+    DECLARE pIdVenta int;
 
     -- Para la respuesta
     DECLARE pRespuesta JSON;
@@ -32,51 +30,48 @@ SALIR:BEGIN
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
 
-    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_presupuesto_dame', pIdUsuarioEjecuta, pMensaje);
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_venta_dame', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
         SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
 
-    -- Extraigo atributos del Presupuesto
-    SET pPresupuestos = pIn ->> "$.Presupuestos";
-    SET pIdPresupuesto = pPresupuestos ->> "$.IdPresupuesto";
+    -- Extraigo atributos de la venta
+    SET pVentas = pIn ->> "$.Ventas";
+    SET pIdVenta = COALESCE(pVentas ->> "$.IdVenta", 0);
 
-    IF pIdPresupuesto IS NULL OR NOT EXISTS (SELECT IdPresupuesto FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto) THEN
-        SELECT f_generarRespuesta("ERROR_NOEXISTE_PRESUPUESTO", NULL) pOut;
-        LEAVE SALIR;
-    END IF;
-
-    CALL zsp_usuario_tiene_permiso(pToken, 'dame_presupuesto_ajeno', pIdUsuarioEjecuta, pMensaje);
+    CALL zsp_usuario_tiene_permiso(pToken, 'dame_venta_ajena', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
-        IF pIdPresupuesto IS NULL OR NOT EXISTS (SELECT IdPresupuesto FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto AND IdUsuario = pIdUsuarioEjecuta) THEN
-            SELECT f_generarRespuesta("ERROR_NOEXISTE_PRESUPUESTO", NULL) pOut;
+        IF NOT EXISTS (SELECT IdVenta FROM Ventas WHERE IdVenta = pIdVenta AND IdUsuario = @pIdUsuarioEjecuta) THEN
+            SELECT f_generarRespuesta("ERROR_NOEXISTE_VENTA", NULL) pOut;
             LEAVE SALIR;
         END IF;
     ELSE
-        IF pIdPresupuesto IS NULL OR NOT EXISTS (SELECT IdPresupuesto FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto) THEN
-            SELECT f_generarRespuesta("ERROR_NOEXISTE_PRESUPUESTO", NULL) pOut;
+        IF NOT EXISTS (SELECT IdVenta FROM Ventas WHERE IdVenta = pIdVenta) THEN
+            SELECT f_generarRespuesta("ERROR_NOEXISTE_VENTA", NULL) pOut;
             LEAVE SALIR;
         END IF;
     END IF;
 
     SET pRespuesta = (
         SELECT JSON_OBJECT(
-            "Presupuestos",  JSON_OBJECT(
-                'IdPresupuesto', p.IdPresupuesto,
-                'IdCliente', p.IdCliente,
-                'IdVenta', p.IdVenta,
-                'IdUbicacion', p.IdUbicacion,
-                'IdUsuario', p.IdUsuario,
-                'PeriodoValidez', p.PeriodoValidez,
-                'FechaAlta', p.FechaAlta,
-                'Observaciones', p.Observaciones,
-                'Estado', p.Estado
+            "Ventas",  JSON_OBJECT(
+                'IdVenta', v.IdVenta,
+                'IdCliente', v.IdCliente,
+                'IdDomicilio', v.IdDomicilio,
+                'IdUbicacion', v.IdUbicacion,
+                'IdUsuario', v.IdUsuario,
+                'FechaAlta', v.FechaAlta,
+                'Observaciones', v.Observaciones,
+                'Estado', v.Estado
             ),
             "Clientes", JSON_OBJECT(
                 'Nombres', c.Nombres,
                 'Apellidos', c.Apellidos,
                 'RazonSocial', c.RazonSocial
+            ),
+            "Domicilios", JSON_OBJECT(
+                'Domicilio', d.Domicilio
             ),
             "Usuarios", JSON_OBJECT(
                 "Nombres", u.Nombres,
@@ -85,14 +80,14 @@ SALIR:BEGIN
             "Ubicaciones", JSON_OBJECT(
                 "Ubicacion", ub.Ubicacion
             ),
-            "LineasPresupuesto", IF(COUNT(lp.IdLineaProducto) > 0, JSON_ARRAYAGG(
+            "LineasVenta", IF(COUNT(lp.IdLineaProducto) > 0, JSON_ARRAYAGG(
                 JSON_OBJECT(
                     "LineasProducto", JSON_OBJECT(
                         "IdLineaProducto", lp.IdLineaProducto,
                         "IdProductoFinal", lp.IdProductoFinal,
                         "Cantidad", lp.Cantidad,
                         "PrecioUnitario", lp.PrecioUnitario
-                        ),
+                    ),
                     "ProductosFinales", JSON_OBJECT(
                         "IdProductoFinal", pf.IdProductoFinal,
                         "IdProducto", pf.IdProducto,
@@ -117,16 +112,17 @@ SALIR:BEGIN
                 )
             ), JSON_ARRAY())
         )
-        FROM Presupuestos p
-        INNER JOIN Clientes c ON c.IdCliente = p.IdCliente
-        INNER JOIN Usuarios u ON u.IdUsuario = p.IdUsuario
-        INNER JOIN Ubicaciones ub ON ub.IdUbicacion = p.IdUbicacion
-        LEFT JOIN LineasProducto lp ON p.IdPresupuesto = lp.IdReferencia AND lp.Tipo = 'P'
+        FROM Ventas v
+        INNER JOIN Usuarios u ON u.IdUsuario = v.IdUsuario
+        INNER JOIN Clientes c ON c.IdCliente = v.IdCliente
+        INNER JOIN Domicilios d ON d.IdDomicilio = v.IdDomicilio
+        INNER JOIN Ubicaciones ub ON ub.IdUbicacion = v.IdUbicacion
+        LEFT JOIN LineasProducto lp ON v.IdVenta = lp.IdReferencia AND lp.Tipo = 'V'
         LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
         LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
         LEFT JOIN Telas te ON pf.IdTela = te.IdTela
         LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
-        WHERE	p.IdPresupuesto = pIdPresupuesto
+        WHERE	v.IdVenta = pIdVenta
     );
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
 END $$
