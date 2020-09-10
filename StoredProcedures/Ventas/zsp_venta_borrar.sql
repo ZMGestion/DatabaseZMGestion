@@ -48,6 +48,14 @@ SALIR: BEGIN
     END IF;
 
     START TRANSACTION;
+        SET @pIdPresupuesto = (SELECT IdPresupuesto FROM Presupuestos WHERE IdVenta = pIdVenta);
+        SET @pIdPresupuesto = COALESCE(@pIdPresupuesto, 0);
+        IF @pIdPresupuesto != 0 THEN
+            UPDATE LineasProducto
+            SET Estado = 'P'
+            WHERE Tipo = 'P' AND IdReferencia = @pIdPresupuesto;
+        END IF;
+
         DELETE
         FROM Ventas
         WHERE IdVenta = pIdVenta;

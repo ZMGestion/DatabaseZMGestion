@@ -40,15 +40,14 @@ SALIR:BEGIN
 
     -- Extraigo atributos de la linea de presupuesto
     SET pLineasProducto = pIn ->> "$.LineasProducto";
-    SET pIdLineaProducto = pLineasProducto ->> "$.IdLineaProducto";
+    SET pIdLineaProducto = COALESCE(pLineasProducto ->> "$.IdLineaProducto", 0);
 
-    IF pIdLineaProducto IS NULL OR NOT EXISTS (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) THEN
+    IF NOT EXISTS (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_LINEAPRESUPUESTO", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
-
-    IF (SELECT Estado FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) <> 'P' AND THEN
+    IF (SELECT Estado FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) != 'P' AND THEN
         SELECT f_generarRespuesta("ERROR_BORRAR_LINEAPRESUPUESTO", NULL) pOut;
         LEAVE SALIR;
     END IF;
