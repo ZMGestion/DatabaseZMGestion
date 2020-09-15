@@ -31,8 +31,8 @@ SALIR: BEGIN
     -- Extraigo atributos del producto final
     SET pProductosFinales = pIn ->> "$.ProductosFinales";
     SET pIdProducto = COALESCE(pProductosFinales ->> "$.IdProducto", 0);
-    SET pIdTela = pProductosFinales ->> "$.IdTela";
-    SET pIdLustre = pProductosFinales ->> "$.IdLustre";
+    SET pIdTela = COALESCE(pProductosFinales ->> "$.IdTela", 0);
+    SET pIdLustre = COALESCE(pProductosFinales ->> "$.IdLustre", 0);
 
     IF NOT EXISTS(SELECT IdVenta FROM Ventas WHERE IdVenta = pIdVenta AND Estado = 'E') THEN
         SET pIdLineaVenta = 0;

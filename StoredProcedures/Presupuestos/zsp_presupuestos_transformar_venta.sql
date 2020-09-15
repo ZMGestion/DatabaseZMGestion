@@ -149,6 +149,7 @@ SALIR: BEGIN
 
         WHILE pIndex < pLongitud DO
             SET pLineaVenta = JSON_EXTRACT(pLineasVenta, CONCAT("$[", pIndex, "]"));
+            SET pLineaVenta = (SELECT JSON_SET(pLineaVenta, '$.LineasProducto.IdReferencia', @pIdVenta, '$.LineasProducto.Tipo', 'V'));
             CALL zsp_lineaVenta_crear_interno(pLineaVenta, pIdLineaProducto, pError);
             IF pError IS NOT NULL THEN
                 SELECT f_generarRespuesta(pError, NULL) pOut;
