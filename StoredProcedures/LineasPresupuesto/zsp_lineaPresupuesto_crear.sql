@@ -124,10 +124,35 @@ SALIR:BEGIN
                             'FechaAlta', lp.FechaAlta,
                             'FechaCancelacion', lp.FechaCancelacion,
                             'Estado', lp.Estado
-                        ) 
+                        ),
+                        "ProductosFinales", JSON_OBJECT(
+                            "IdProductoFinal", pf.IdProductoFinal,
+                            "IdProducto", pf.IdProducto,
+                            "IdTela", pf.IdTela,
+                            "IdLustre", pf.IdLustre,
+                            "FechaAlta", pf.FechaAlta
+                        ),
+                        "Productos",JSON_OBJECT(
+                            "IdProducto", pr.IdProducto,
+                            "Producto", pr.Producto
+                        ),
+                        "Telas",IF (te.IdTela  IS NOT NULL,
+                        JSON_OBJECT(
+                            "IdTela", te.IdTela,
+                            "Tela", te.Tela
+                        ),NULL),
+                        "Lustres",IF (lu.IdLustre  IS NOT NULL,
+                        JSON_OBJECT(
+                            "IdLustre", lu.IdLustre,
+                            "Lustre", lu.Lustre
+                        ), NULL)
                     )
                 AS JSON)
                 FROM	LineasProducto lp
+                LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
+                LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
+                LEFT JOIN Telas te ON pf.IdTela = te.IdTela
+                LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
                 WHERE	lp.IdLineaProducto = LAST_INSERT_ID()
             );
 	
