@@ -53,15 +53,16 @@ SALIR: BEGIN
     SELECT IdReferencia, Cantidad, PrecioUnitario INTO pIdVenta, @pCantidad, @pPrecioUnitario FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto;
     SET @pMontoCancelado = (SELECT SUM(PrecioUnitario * Cantidad) FROM LineasProducto WHERE IdReferencia = pIdVenta AND Tipo = 'V' AND Estado = 'C');
 
-    IF EXISTS(SELECT IdComprobante FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'A') THEN
-        IF (SELECT SUM(Monto) FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'N') !=  @pMontoCancelado + (@pCantidad * @pPrecioUnitario) THEN
+    -- Compruebo si existe una Factura A. En caso que haya deben existir notas de credito cuya suma total sea igual a las lineas de venta canceladas.
+    IF EXISTS(SELECT IdComprobante FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'A' AND Estado = 'A') THEN
+        IF (SELECT SUM(Monto) FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'N' AND ESTADO = 'A') !=  @pMontoCancelado + (@pCantidad * @pPrecioUnitario) THEN
             SELECT f_generarRespuesta("ERROR_NOTACREDITOA_VENTA", NULL) pOut;
             LEAVE SALIR;
         END IF;
     END IF;
 
-    IF EXISTS(SELECT IdComprobante FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'B') THEN
-        IF (SELECT SUM(Monto) FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'M') != @pMontoCancelado + (@pCantidad * @pPrecioUnitario) THEN
+    IF EXISTS(SELECT IdComprobante FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'B' AND Estado = 'A') THEN
+        IF (SELECT SUM(Monto) FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'M' AND Estado = 'A') != @pMontoCancelado + (@pCantidad * @pPrecioUnitario) THEN
             SELECT f_generarRespuesta("ERROR_NOTACREDITOB_VENTA", NULL) pOut;
             LEAVE SALIR;
         END IF;
