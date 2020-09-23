@@ -17,34 +17,33 @@ SALIR: BEGIN
     DECLARE pToken VARCHAR(256);
 
     SET pUsuarios = pIn ->> '$.Usuarios';
-    SET pToken = pUsuarios ->> '$.Token'; 
+    SET pToken = COALESCE(pUsuarios ->> '$.Token', ''); 
 
-    IF pToken IS NULL OR pToken = '' THEN
+    IF pToken = '' THEN
         SELECT f_generarRespuesta('ERROR_TRANSACCION', NULL) pOut;
         LEAVE SALIR;
     END IF;
     
-    SET pUsuario = pUsuarios ->> '$.Usuario';
-    SET pEmail = pUsuarios ->> '$.Email';
-    SET pPass = pUsuarios ->> '$.Password'; 
+    SET pUsuario = COALESCE(pUsuarios ->> '$.Usuario', '');
+    SET pEmail = COALESCE(pUsuarios ->> '$.Email', '');
+    SET pPass = COALESCE(pUsuarios ->> '$.Password', ''); 
 
 
     SET pTIEMPOINTENTOS = (SELECT CONVERT(Valor, UNSIGNED) FROM Empresa WHERE Parametro='TIEMPOINTENTOS');
     SET pMAXINTPASS = (SELECT CONVERT(Valor, UNSIGNED) FROM Empresa WHERE Parametro='MAXINTPASS');
 
-    
-    IF (pUsuario IS NULL OR pUsuario = '') AND (pEmail IS NULL OR pEmail = '') THEN
+    IF pUsuario = '' AND pEmail = '' THEN
         SELECT f_generarRespuesta('ERROR_INGRESE_USUARIOEMAIL', NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     -- Control porque no se puede enviar usuario y correo electronico. Debe ser uno de los dos
-    IF (pUsuario IS NOT NULL AND pUsuario <> '') AND (pEmail IS NOT NULL AND pEmail <> '') THEN
+    IF pUsuario <> '' AND pEmail <> '' THEN
         SELECT f_generarRespuesta('ERROR_INGRESE_USUARIOEMAIL', NULL) pOut;
         LEAVE SALIR;
     END IF;
 
-    IF pEmail IS NOT NULL AND pEmail <> '' THEN
+    IF pEmail <> '' THEN
         IF(NOT EXISTS (SELECT IdUsuario FROM Usuarios WHERE Email = pEmail)) THEN
             SELECT f_generarRespuesta('ERROR_LOGIN_INCORRECTO', NULL) pOut;
             LEAVE SALIR;
@@ -71,7 +70,7 @@ SALIR: BEGIN
 
         IF DATE_ADD(pFechaUltIntento, INTERVAL pTIEMPOINTENTOS MINUTE) < NOW() THEN
             SET pIntentos = 0;
-            SELECT pTIEMPOINTENTOS Mensaje;
+            -- SELECT pTIEMPOINTENTOS Mensaje;
         END IF;
 
         IF NOT EXISTS (SELECT Estado FROM Usuarios WHERE `Password` = pPass AND ESTADO = 'A' AND IdUsuario = pIdUsuario) THEN
@@ -125,7 +124,6 @@ SALIR: BEGIN
                 FROM	Usuarios
                 WHERE	IdUsuario = pIdUsuario
             );
-
             SELECT f_generarRespuesta(NULL, JSON_OBJECT("Usuarios", pUsuarios)) pOut; 
         END IF;        
     COMMIT;

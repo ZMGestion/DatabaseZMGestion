@@ -50,6 +50,11 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
+    IF (SELECT v.Estado FROM Ventas v INNER JOIN LineasProducto lp ON lp.IdReferencia = v.IdVenta WHERE lp.IdLineaProducto = pIdLineaProducto) != 'C' THEN
+        SELECT f_generarRespuesta("ERROR_CANCELAR_LINEAVENTA", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
     SELECT IdReferencia, Cantidad, PrecioUnitario INTO pIdVenta, @pCantidad, @pPrecioUnitario FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto;
     SET @pMontoCancelado = (SELECT SUM(PrecioUnitario * Cantidad) FROM LineasProducto WHERE IdReferencia = pIdVenta AND Tipo = 'V' AND Estado = 'C');
 
@@ -72,12 +77,14 @@ SALIR: BEGIN
         IF EXISTS (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProductoPadre = pIdLineaProducto AND Tipo = 'R') THEN
             SET @pIdLineaRemito = (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProductoPadre = pIdLineaProducto AND Tipo = 'R');
             UPDATE LineasProducto
-            SET Estado = 'C'
+            SET Estado = 'C',
+                FechaCancelacion = NOW()
             WHERE IdLineaProducto = @pIdLineaRemito;
         END IF;
 
         UPDATE LineasProducto
-        SET Estado = 'C'
+        SET Estado = 'C',
+            FechaCancelacion = NOW()
         WHERE IdLineaProducto = pIdLineaProducto;
 
         SET pRespuesta = (

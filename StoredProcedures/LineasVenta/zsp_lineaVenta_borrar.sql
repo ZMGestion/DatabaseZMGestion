@@ -33,7 +33,7 @@ SALIR: BEGIN
     END IF;
 
     SET pLineasProducto = pIn ->> "$.LineasProducto";
-    SET pIdLineaProducto = COALESCE(pIn ->> "$.IdLineaProducto", 0);
+    SET pIdLineaProducto = COALESCE(pLineasProducto ->> "$.IdLineaProducto", 0);
 
     IF NOT EXISTS(SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto AND Estado = 'P') THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_LINEAVENTA", NULL) pOut;

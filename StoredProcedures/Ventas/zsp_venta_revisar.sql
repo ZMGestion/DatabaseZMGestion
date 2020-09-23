@@ -58,7 +58,7 @@ SALIR: BEGIN
                     'IdUsuario', v.IdUsuario,
                     'FechaAlta', v.FechaAlta,
                     'Observaciones', v.Observaciones,
-                    'Estado', v.Estado
+                    'Estado', f_calcularEstadoVenta(v.IdVenta)
                 ),
                 "Clientes", JSON_OBJECT(
                     'Nombres', c.Nombres,

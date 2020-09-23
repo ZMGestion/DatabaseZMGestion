@@ -15,6 +15,8 @@ SALIR: BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
+    DECLARE pError varchar(255);
+
     DECLARE pIdLineaVenta bigint;
 
     -- Para la respuesta
@@ -38,7 +40,7 @@ SALIR: BEGIN
 
     START TRANSACTION;
         
-        CALL zsp_lineasVenta_crear_interno(pIn, pIdLineaVenta);
+        CALL zsp_lineaVenta_crear_interno(pIn, pIdLineaVenta, pError);
         IF pError IS NOT NULL THEN
             SELECT f_generarRespuesta(pError, NULL) pOut;
             LEAVE SALIR;
@@ -59,11 +61,36 @@ SALIR: BEGIN
                         'FechaAlta', lp.FechaAlta,
                         'FechaCancelacion', lp.FechaCancelacion,
                         'Estado', lp.Estado
-                    ) 
+                    ) ,
+                    "ProductosFinales", JSON_OBJECT(
+                        "IdProductoFinal", pf.IdProductoFinal,
+                        "IdProducto", pf.IdProducto,
+                        "IdTela", pf.IdTela,
+                        "IdLustre", pf.IdLustre,
+                        "FechaAlta", pf.FechaAlta
+                    ),
+                    "Productos",JSON_OBJECT(
+                        "IdProducto", pr.IdProducto,
+                        "Producto", pr.Producto
+                    ),
+                    "Telas",IF (te.IdTela  IS NOT NULL,
+                    JSON_OBJECT(
+                        "IdTela", te.IdTela,
+                        "Tela", te.Tela
+                    ),NULL),
+                    "Lustres",IF (lu.IdLustre  IS NOT NULL,
+                    JSON_OBJECT(
+                        "IdLustre", lu.IdLustre,
+                        "Lustre", lu.Lustre
+                    ), NULL)
                 )
             AS JSON)
             FROM	LineasProducto lp
-            WHERE	lp.IdLineaProducto = pIdLineaVenta
+            LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
+            LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
+            LEFT JOIN Telas te ON pf.IdTela = te.IdTela
+            LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
+            WHERE	lp.IdLineaProducto = pIdLineaVenta AND lp.Tipo = 'V'
         );
 	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;

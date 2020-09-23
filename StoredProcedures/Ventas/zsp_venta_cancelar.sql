@@ -87,11 +87,12 @@ SALIR: BEGIN
                     LEAVE get_lineaVenta;
                 END IF;
 
-                IF (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProductoPadre = pIdLineaProducto AND Tipo = 'R') THEN
+                IF EXISTS(SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProductoPadre = pIdLineaProducto AND Tipo = 'R') THEN
                     SELECT IdLineaProducto, IdReferencia INTO @pIdLineaRemito, @pIdRemito FROM LineasProducto WHERE IdLineaProductoPadre = pIdLineaProducto AND Tipo = 'R';
                     
                     UPDATE LineasProducto
-                    SET Estado = 'C'
+                    SET Estado = 'C',
+                        FechaCancelacion = NOW()
                     WHERE IdLineaProducto = @pIdLineaRemito AND Tipo = 'R';
 
                     IF (SELECT Estado FROM Remitos WHERE IdRemito = @pIdRemito) = 'C' THEN
@@ -111,13 +112,20 @@ SALIR: BEGIN
         CLOSE lineasVenta_cursor;
 
         UPDATE LineasProducto
-        SET Estado = 'C'
+        SET Estado = 'C',
+            FechaCancelacion = NOW()
         WHERE IdReferencia = pIdVenta AND Tipo = 'V';
 
         UPDATE Presupuestos
         SET Estado = 'C',
             IdVenta = NULL
         WHERE IdVenta = pIdVenta;
+
+        IF (SELECT Estado FROM Ventas WHERE IdVenta = pIdVenta) = 'R' THEN
+            UPDATE Ventas
+            SET Estado = 'C'
+            WHERE IdVenta = pIdVenta;
+        END IF;
 
         SET pRespuesta = (
 			SELECT CAST(
@@ -130,8 +138,8 @@ SALIR: BEGIN
                         'IdUsuario', v.IdUsuario,
                         'FechaAlta', v.FechaAlta,
                         'Observaciones', v.Observaciones,
-                        'Estado', v.Estado
-                        ) 
+                        'Estado', f_calcularEstadoVenta(v.IdVenta)
+                    ) 
                 )
              AS JSON)
 			FROM	Ventas v

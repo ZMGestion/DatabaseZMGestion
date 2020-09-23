@@ -148,7 +148,7 @@ SALIR:BEGIN
                         ), NULL)
                     )
                 AS JSON)
-                FROM	LineasProducto lp
+                FROM LineasProducto lp
                 LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
                 LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
                 LEFT JOIN Telas te ON pf.IdTela = te.IdTela

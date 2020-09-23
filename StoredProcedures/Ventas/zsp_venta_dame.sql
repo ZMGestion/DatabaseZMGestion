@@ -63,7 +63,8 @@ SALIR: BEGIN
                 'IdUsuario', v.IdUsuario,
                 'FechaAlta', v.FechaAlta,
                 'Observaciones', v.Observaciones,
-                'Estado', v.Estado
+                'Estado', f_calcularEstadoVenta(v.IdVenta),
+                '_PrecioTotal', SUM(lp.Cantidad * lp.PrecioUnitario)
             ),
             "Clientes", JSON_OBJECT(
                 'Nombres', c.Nombres,
@@ -86,7 +87,8 @@ SALIR: BEGIN
                         "IdLineaProducto", lp.IdLineaProducto,
                         "IdProductoFinal", lp.IdProductoFinal,
                         "Cantidad", lp.Cantidad,
-                        "PrecioUnitario", lp.PrecioUnitario
+                        "PrecioUnitario", lp.PrecioUnitario,
+                        "Estado", lp.Estado
                     ),
                     "ProductosFinales", JSON_OBJECT(
                         "IdProductoFinal", pf.IdProductoFinal,
@@ -115,7 +117,7 @@ SALIR: BEGIN
         FROM Ventas v
         INNER JOIN Usuarios u ON u.IdUsuario = v.IdUsuario
         INNER JOIN Clientes c ON c.IdCliente = v.IdCliente
-        INNER JOIN Domicilios d ON d.IdDomicilio = v.IdDomicilio
+        LEFT JOIN Domicilios d ON d.IdDomicilio = v.IdDomicilio
         INNER JOIN Ubicaciones ub ON ub.IdUbicacion = v.IdUbicacion
         LEFT JOIN LineasProducto lp ON v.IdVenta = lp.IdReferencia AND lp.Tipo = 'V'
         LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
