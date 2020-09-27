@@ -68,21 +68,21 @@ SALIR:BEGIN
                         'Estado', p.Estado
                         ),
                     "GruposProducto", 
-                            JSON_OBJECT(
-                                'IdGrupoProducto', gp.IdGrupoProducto,
-                                'Grupo', gp.Grupo,
-                                'Estado', gp.Estado
-                            ),
-                        "CategoriasProducto", 
-                            JSON_OBJECT(
-                                'IdCategoriaProducto', cp.IdCategoriaProducto,
-                                'Categoria', cp.Categoria
-                            ),
-                        "TiposProducto", 
-                            JSON_OBJECT(
-                                'IdCategoriaProducto', tp.IdTipoProducto,
-                                'TipoProducto', tp.TipoProducto
-                            ),
+                        JSON_OBJECT(
+                            'IdGrupoProducto', gp.IdGrupoProducto,
+                            'Grupo', gp.Grupo,
+                            'Estado', gp.Estado
+                        ),
+                    "CategoriasProducto", 
+                        JSON_OBJECT(
+                            'IdCategoriaProducto', cp.IdCategoriaProducto,
+                            'Categoria', cp.Categoria
+                        ),
+                    "TiposProducto", 
+                        JSON_OBJECT(
+                            'IdTipoProducto', tp.IdTipoProducto,
+                            'TipoProducto', tp.TipoProducto
+                        ),
                     "Precios", JSON_OBJECT(
                         'IdPrecio', ps.IdPrecio,
                         'Precio', ps.Precio,

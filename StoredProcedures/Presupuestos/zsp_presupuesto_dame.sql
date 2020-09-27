@@ -76,7 +76,8 @@ SALIR:BEGIN
             "Clientes", JSON_OBJECT(
                 'Nombres', c.Nombres,
                 'Apellidos', c.Apellidos,
-                'RazonSocial', c.RazonSocial
+                'RazonSocial', c.RazonSocial,
+                'Documento', c.Documento
             ),
             "Usuarios", JSON_OBJECT(
                 "Nombres", u.Nombres,
@@ -84,6 +85,9 @@ SALIR:BEGIN
             ),
             "Ubicaciones", JSON_OBJECT(
                 "Ubicacion", ub.Ubicacion
+            ),
+            "Domicilios", JSON_OBJECT(
+                "Domicilio", d.Domicilio
             ),
             "LineasPresupuesto", IF(COUNT(lp.IdLineaProducto) > 0, JSON_ARRAYAGG(
                 JSON_OBJECT(
@@ -121,6 +125,7 @@ SALIR:BEGIN
         INNER JOIN Clientes c ON c.IdCliente = p.IdCliente
         INNER JOIN Usuarios u ON u.IdUsuario = p.IdUsuario
         INNER JOIN Ubicaciones ub ON ub.IdUbicacion = p.IdUbicacion
+        INNER JOIN Domicilios d ON d.IdDomicilio = ub.IdDomicilio
         LEFT JOIN LineasProducto lp ON p.IdPresupuesto = lp.IdReferencia AND lp.Tipo = 'P'
         LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
         LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
