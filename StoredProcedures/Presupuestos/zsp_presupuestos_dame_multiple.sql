@@ -1,11 +1,10 @@
-DROP PROCEDURE IF EXISTS zsp_venta_revisar;
+DROP PROCEDURE IF EXISTS zsp_presupuestos_dame_multiple;
 DELIMITER $$
-CREATE PROCEDURE zsp_venta_revisar(pIn JSON)
+CREATE PROCEDURE zsp_presupuestos_dame_multiple(pIn JSON)
 SALIR: BEGIN
     /*
-        Procedimiento que permite que aceptar una venta que esta en estado En Revisio.
-        Cambia el estado de la venta de 'R' a 'C'.
-        Devuelve la venta en 'respuesta' o el error en 'error'.
+        Procedimiento que permite instancias mas de un presupuesto a partir de sus Id.
+        Devuelve los presupuestos con sus lineas de presupuesto en 'respuesta' o el error en 'error'
     */
 
     -- Control de permisos
@@ -14,59 +13,53 @@ SALIR: BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
-    DECLARE pVentas JSON;
-    DECLARE pIdVenta int;
+    DECLARE pPresupuestos JSON;
+    DECLARE pIdPresupuesto int;
+
+    DECLARE pLongitud int unsigned;
+    DECLARE pIndex int unsigned DEFAULT 0;
+    DECLARE pCondicion varchar(100);
 
     DECLARE pRespuesta JSON;
-
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        SHOW ERRORS;
-        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
-        ROLLBACK;
-    END;
     
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
     
-    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_venta_revisar', pIdUsuarioEjecuta, pMensaje);
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_presupuestos_dame_multiple', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
         SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
     END IF;
-    
-    SET pVentas = pIn ->> "$.Ventas";
-    SET pIdVenta = COALESCE(pVentas ->> "$.IdVenta");
 
-    IF NOT EXISTS(SELECT IdVenta FROM Ventas WHERE IdVenta = pIdVenta AND Estado = 'R') THEN
-        SELECT f_generarRespuesta("ERROR_NOEXISTE_VENTA", NULL) pOut;
-        LEAVE SALIR;
-    END IF;
+    SET pPresupuestos = pIn ->> "$.Presupuestos";
+    SET pLongitud = JSON_LENGTH(pPresupuestos);
+    SET pRespuesta = JSON_ARRAY();
 
-    START TRANSACTION;
-        UPDATE Ventas
-        SET Estado = 'C'
-        WHERE IdVenta = pIdVenta;
+    WHILE pIndex < pLongitud DO
+        SET pIdPresupuesto = JSON_EXTRACT(pPresupuestos, CONCAT("$[", pIndex, "]"));
 
-        SET pRespuesta = (
+        IF NOT EXISTS(SELECT IdPresupuesto FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto) THEN
+            SELECT f_generarRespuesta("ERROR_NOEXISTE_PRESUPUESTO", NULL) pOut;
+            LEAVE SALIR;
+        END IF;
+
+        SET @pPresupuesto = (
             SELECT JSON_OBJECT(
-                "Ventas",  JSON_OBJECT(
-                    'IdVenta', v.IdVenta,
-                    'IdCliente', v.IdCliente,
-                    'IdDomicilio', v.IdDomicilio,
-                    'IdUbicacion', v.IdUbicacion,
-                    'IdUsuario', v.IdUsuario,
-                    'FechaAlta', v.FechaAlta,
-                    'Observaciones', v.Observaciones,
-                    'Estado', f_calcularEstadoVenta(v.IdVenta)
+                "Presupuestos",  JSON_OBJECT(
+                    'IdPresupuesto', p.IdPresupuesto,
+                    'IdCliente', p.IdCliente,
+                    'IdVenta', p.IdVenta,
+                    'IdUbicacion', p.IdUbicacion,
+                    'IdUsuario', p.IdUsuario,
+                    'PeriodoValidez', p.PeriodoValidez,
+                    'FechaAlta', p.FechaAlta,
+                    'Observaciones', p.Observaciones,
+                    'Estado', p.Estado
                 ),
                 "Clientes", JSON_OBJECT(
                     'Nombres', c.Nombres,
                     'Apellidos', c.Apellidos,
                     'RazonSocial', c.RazonSocial
-                ),
-                "Domicilios", JSON_OBJECT(
-                    'Domicilio', d.Domicilio
                 ),
                 "Usuarios", JSON_OBJECT(
                     "Nombres", u.Nombres,
@@ -75,14 +68,14 @@ SALIR: BEGIN
                 "Ubicaciones", JSON_OBJECT(
                     "Ubicacion", ub.Ubicacion
                 ),
-                "LineasVenta", IF(COUNT(lp.IdLineaProducto) > 0, JSON_ARRAYAGG(
+                "LineasPresupuesto", IF(COUNT(lp.IdLineaProducto) > 0, JSON_ARRAYAGG(
                     JSON_OBJECT(
                         "LineasProducto", JSON_OBJECT(
                             "IdLineaProducto", lp.IdLineaProducto,
                             "IdProductoFinal", lp.IdProductoFinal,
                             "Cantidad", lp.Cantidad,
                             "PrecioUnitario", lp.PrecioUnitario
-                        ),
+                            ),
                         "ProductosFinales", JSON_OBJECT(
                             "IdProductoFinal", pf.IdProductoFinal,
                             "IdProducto", pf.IdProducto,
@@ -107,19 +100,21 @@ SALIR: BEGIN
                     )
                 ), JSON_ARRAY())
             )
-            FROM Ventas v
-            INNER JOIN Usuarios u ON u.IdUsuario = v.IdUsuario
-            INNER JOIN Clientes c ON c.IdCliente = v.IdCliente
-            INNER JOIN Domicilios d ON d.IdDomicilio = v.IdDomicilio
-            INNER JOIN Ubicaciones ub ON ub.IdUbicacion = v.IdUbicacion
-            LEFT JOIN LineasProducto lp ON v.IdVenta = lp.IdReferencia AND lp.Tipo = 'V'
+            FROM Presupuestos p
+            INNER JOIN Clientes c ON c.IdCliente = p.IdCliente
+            INNER JOIN Usuarios u ON u.IdUsuario = p.IdUsuario
+            INNER JOIN Ubicaciones ub ON ub.IdUbicacion = p.IdUbicacion
+            LEFT JOIN LineasProducto lp ON p.IdPresupuesto = lp.IdReferencia AND lp.Tipo = 'P'
             LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
             LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
             LEFT JOIN Telas te ON pf.IdTela = te.IdTela
             LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
-            WHERE	v.IdVenta = pIdVenta
+            WHERE	p.IdPresupuesto = pIdPresupuesto
         );
-		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
-    COMMIT;
+
+        SET pRespuesta = JSON_ARRAY_INSERT(pRespuesta, CONCAT('$[', pIndex, ']'), CAST(@pPresupuesto AS JSON));
+        SET pIndex = pIndex + 1;
+    END WHILE;
+    SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
 END $$
 DELIMITER ;

@@ -6,7 +6,7 @@ SALIR: BEGIN
         Procedimiento que permite buscar una venta
         - Usuario (0: Todos)
         - Cliente (0: Todos)
-        - Estado (E:En Creación - C:Pendiente - R:En revisión - N: Entregado - A:Cancelado - T:Todos)
+        - Estado (E:En Creación - C:Pendiente - R:En revisión - N: Entregado - A:Cancelado - T:Todos) //Revisar esto
         - Producto(0:Todos),
         - Telas(0:Todos),
         - Lustre (0: Todos),
@@ -22,26 +22,23 @@ SALIR: BEGIN
     DECLARE pMensaje text;
 
     -- Venta
-    DECLARE pVentas JSON;
     DECLARE pIdUsuario smallint;
     DECLARE pIdCliente int;
     DECLARE pIdUbicacion tinyint;
     DECLARE pEstado char(1);
 
     -- Paginacion
-    DECLARE pPaginaciones JSON;
     DECLARE pPagina int;
     DECLARE pLongitudPagina int;
     DECLARE pCantidadTotal int;
     DECLARE pOffset int;
 
     -- Parametros busqueda
-    DECLARE pParametrosBusqueda JSON;
     DECLARE pFechaInicio datetime;
     DECLARE pFechaFin datetime;
+    DECLARE pFechaAux datetime;
 
     -- Productos Final
-    DECLARE pProductosFinales JSON;
     DECLARE pIdProducto int;
     DECLARE pIdLustre tinyint;
     DECLARE pIdTela smallint;
@@ -67,32 +64,35 @@ SALIR: BEGIN
     END IF;
 
     -- Atributos ventas
-    SET pVentas = pIn ->> "$.Ventas";
-    SET pIdCliente = COALESCE(pVentas ->> "$.IdCliente", 0);
-    SET pIdUsuario = COALESCE(pVentas ->> "$.IdUsuario", 0);
-    SET pIdUbicacion = COALESCE(pVentas ->> "$.IdUbicacion", 0);
-    SET pEstado = TRIM(COALESCE(pVentas ->> "$.Estado", "T"));
+    SET pIdCliente = COALESCE(pIn ->> "$.Ventas.IdCliente", 0);
+    SET pIdUsuario = COALESCE(pIn ->> "$.Ventas.IdUsuario", 0);
+    SET pIdUbicacion = COALESCE(pIn ->> "$.Ventas.IdUbicacion", 0);
+    SET pEstado = TRIM(COALESCE(pIn ->> "$.Ventas.Estado", "T"));
 
     -- Atributos productos finales
-    SET pProductosFinales = pIn ->> "$.ProductosFinales";
-    SET pIdProducto = COALESCE(pProductosFinales ->> "$.IdProducto", 0);
-    SET pIdTela = COALESCE(pProductosFinales ->> "$.IdTela", 0);
-    SET pIdLustre = COALESCE(pProductosFinales ->> "$.IdLustre", 0);
+    SET pIdProducto = COALESCE(pIn ->> "$.ProductosFinales.IdProducto", 0);
+    SET pIdTela = COALESCE(pIn ->> "$.ProductosFinales.IdTela", 0);
+    SET pIdLustre = COALESCE(pIn ->> "$.ProductosFinales.IdLustre", 0);
 
     -- Atributos paginaciones
-    SET pPaginaciones = pIn ->>'$.Paginaciones';
-    SET pPagina = COALESCE(pPaginaciones ->> '$.Pagina', 1);
-    SET pLongitudPagina = pPaginaciones ->> '$.LongitudPagina';
+    SET pPagina = COALESCE(pIn ->> '$.Paginaciones.Pagina', 1);
+    SET pLongitudPagina = COALESCE(pIn ->> '$.Paginaciones.LongitudPagina', 0);
 
     -- Atributos parametros de busqueda
-    SET pParametrosBusqueda = pIn ->>"$.ParametrosBusqueda";
-    IF CHAR_LENGTH(COALESCE(pParametrosBusqueda ->>"$.FechaInicio", '')) > 0 THEN
-        SET pFechaInicio = pParametrosBusqueda ->> "$.FechaInicio";
+    IF CHAR_LENGTH(COALESCE(pIn ->>"$.ParametrosBusqueda.FechaInicio", '')) > 0 THEN
+        SET pFechaInicio = pIn ->> "$.ParametrosBusqueda.FechaInicio";
     END IF;
-    IF CHAR_LENGTH(COALESCE(pParametrosBusqueda ->>"$.FechaFin", '')) = 0 THEN
+    IF CHAR_LENGTH(COALESCE(pIn ->>"$.ParametrosBusqueda.FechaFin", '')) = 0 THEN
         SET pFechaFin = NOW();
     ELSE
-        SET pFechaFin = pParametrosBusqueda ->> "$.FechaFin";
+        SET pFechaFin = pIn ->>"$.ParametrosBusqueda.FechaFin";
+    END IF;
+
+    -- Arreglo el orden de las fechas
+    IF pFechaInicio IS NOT NULL AND pFechaFin < pFechaInicio THEN
+        SET pFechaAux = pFechaInicio;
+        SET pFechaInicio = pFechaFin;
+        SET pFechaFin = pFechaAux;
     END IF;
 
     CALL zsp_usuario_tiene_permiso(pToken, 'buscar_ventas_ajenas', pIdUsuarioEjecuta, pMensaje);
@@ -108,11 +108,7 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF pPagina = 0 THEN
-        SET pPagina = 1;
-    END IF;
-
-    IF pLongitudPagina IS NULL OR pLongitudPagina = 0 THEN
+    IF pLongitudPagina = 0 THEN
         SET pLongitudPagina = (SELECT Valor FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');
     END IF;
     
@@ -132,9 +128,7 @@ SALIR: BEGIN
     AND (v.IdCliente = pIdCliente OR pIdCliente = 0)
     AND (v.IdUbicacion = pIdUbicacion OR pIdUbicacion = 0)
     AND (
-            v.Estado = pEstado 
-            OR (pEstado = 'A' AND v.Estado IN ('C', 'R') AND lp.Estado = 'C')
-            OR (pEstado = 'N' AND v.Estado = 'C' AND lp.Estado = 'P')
+            f_calcularEstadoVenta(v.IdVenta) = pEstado
             OR pEstado = 'T'
         )
     AND ((pFechaInicio IS NULL AND v.FechaAlta <= pFechaFin) OR (pFechaInicio IS NOT NULL AND v.FechaAlta BETWEEN pFechaInicio AND pFechaFin))
@@ -143,7 +137,7 @@ SALIR: BEGIN
     AND (pf.IdLustre = pIdLustre OR pIdLustre = 0);
     
     -- Para devolver CantidadTotal en Paginaciones
-    SET pCantidadTotal = (SELECT COUNT(*) FROM tmp_Ventas);
+    SET pCantidadTotal = (SELECT COUNT(DISTINCT IdVenta) FROM tmp_Ventas);
     
     -- Ventas paginadas
     CREATE TEMPORARY TABLE tmp_VentasPaginadas AS
@@ -209,7 +203,7 @@ SALIR: BEGIN
                     'IdUsuario', tmpv.IdUsuario,
                     'FechaAlta', tmpv.FechaAlta,
                     'Observaciones', tmpv.Observaciones,
-                    'Estado', tmpv.Estado,
+                    'Estado', f_calcularEstadoVenta(tmpv.IdVenta),
                     '_PrecioTotal', tmpv.PrecioTotal
                 ),
                 "Clientes", JSON_OBJECT(
@@ -224,7 +218,7 @@ SALIR: BEGIN
                 "Ubicaciones", JSON_OBJECT(
                     "Ubicacion", ub.Ubicacion
                 ),
-                "LineasVentas", tmpv.LineasVenta
+                "LineasVenta", tmpv.LineasVenta
             )
         )
         FROM tmp_ventasPrecios tmpv

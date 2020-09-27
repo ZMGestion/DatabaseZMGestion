@@ -18,6 +18,7 @@ SALIR: BEGIN
     DECLARE pIdUbicacion tinyint;
     DECLARE pIdCliente int;
     DECLARE pIdDomicilio int;
+    DECLARE pEstado char(1) DEFAULT 'C';
     DECLARE pObservaciones varchar(255);
 
     -- LineasPresupuesto
@@ -149,14 +150,22 @@ SALIR: BEGIN
 
         WHILE pIndex < pLongitud DO
             SET pLineaVenta = JSON_EXTRACT(pLineasVenta, CONCAT("$[", pIndex, "]"));
+            SET pLineaVenta = (SELECT JSON_SET(pLineaVenta, '$.LineasProducto.IdReferencia', @pIdVenta, '$.LineasProducto.Tipo', 'V'));
             CALL zsp_lineaVenta_crear_interno(pLineaVenta, pIdLineaProducto, pError);
             IF pError IS NOT NULL THEN
                 SELECT f_generarRespuesta(pError, NULL) pOut;
                 LEAVE SALIR;
             END IF;
+            IF (SELECT PrecioUnitario FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto AND Tipo = 'V') != f_calcularPrecioProductoFinal(pIdLineaProducto) THEN
+                SET pEstado = 'R';
+            END IF;
 
             SET pIndex = pIndex + 1;
         END WHILE;
+
+        UPDATE Ventas
+        SET Estado = pEstado
+        WHERE IdVenta = @pIdVenta;
 
         SET pRespuesta = (
             SELECT JSON_OBJECT(

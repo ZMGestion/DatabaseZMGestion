@@ -67,7 +67,7 @@ SALIR: BEGIN
 
             SET @pIdProductoFinal = (SELECT IdProductoFinal FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto);
 
-            IF (SELECT PrecioUnitario FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) = f_calcularPrecioProductoFinal(@pIdProductoFinal) THEN
+            IF (SELECT PrecioUnitario FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) != f_calcularPrecioProductoFinal(@pIdProductoFinal) THEN
                 SET pEstado = 'R';
             END IF;
         END LOOP get_lineaVenta;
@@ -89,64 +89,9 @@ SALIR: BEGIN
                 'FechaAlta', v.FechaAlta,
                 'Observaciones', v.Observaciones,
                 'Estado', v.Estado
-            ),
-            "Clientes", JSON_OBJECT(
-                'Nombres', c.Nombres,
-                'Apellidos', c.Apellidos,
-                'RazonSocial', c.RazonSocial
-            ),
-            "Domicilios", JSON_OBJECT(
-                'Domicilio', d.Domicilio
-            ),
-            "Usuarios", JSON_OBJECT(
-                "Nombres", u.Nombres,
-                "Apellidos", u.Apellidos
-            ),
-            "Ubicaciones", JSON_OBJECT(
-                "Ubicacion", ub.Ubicacion
-            ),
-            "LineasVenta", IF(COUNT(lp.IdLineaProducto) > 0, JSON_ARRAYAGG(
-                JSON_OBJECT(
-                    "LineasProducto", JSON_OBJECT(
-                        "IdLineaProducto", lp.IdLineaProducto,
-                        "IdProductoFinal", lp.IdProductoFinal,
-                        "Cantidad", lp.Cantidad,
-                        "PrecioUnitario", lp.PrecioUnitario
-                    ),
-                    "ProductosFinales", JSON_OBJECT(
-                        "IdProductoFinal", pf.IdProductoFinal,
-                        "IdProducto", pf.IdProducto,
-                        "IdTela", pf.IdTela,
-                        "IdLustre", pf.IdLustre,
-                        "FechaAlta", pf.FechaAlta
-                    ),
-                    "Productos",JSON_OBJECT(
-                        "IdProducto", pr.IdProducto,
-                        "Producto", pr.Producto
-                    ),
-                    "Telas",IF (te.IdTela  IS NOT NULL,
-                    JSON_OBJECT(
-                        "IdTela", te.IdTela,
-                        "Tela", te.Tela
-                    ),NULL),
-                    "Lustres",IF (lu.IdLustre  IS NOT NULL,
-                    JSON_OBJECT(
-                        "IdLustre", lu.IdLustre,
-                        "Lustre", lu.Lustre
-                    ), NULL)
-                )
-            ), JSON_ARRAY())
+            )
         )
         FROM Ventas v
-        INNER JOIN Usuarios u ON u.IdUsuario = v.IdUsuario
-        INNER JOIN Clientes c ON c.IdCliente = v.IdCliente
-        INNER JOIN Domicilios d ON d.IdDomicilio = v.IdDomicilio
-        INNER JOIN Ubicaciones ub ON ub.IdUbicacion = v.IdUbicacion
-        LEFT JOIN LineasProducto lp ON v.IdVenta = lp.IdReferencia AND lp.Tipo = 'V'
-        LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
-        LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
-        LEFT JOIN Telas te ON pf.IdTela = te.IdTela
-        LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
         WHERE	v.IdVenta = pIdVenta
     );
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
