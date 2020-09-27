@@ -35,7 +35,7 @@ SALIR: BEGIN
     SET pPresupuestos = pIn ->> '$.Presupuestos';
     SET pIdPresupuesto = pPresupuestos ->> '$.IdPresupuesto';
 
-    IF NOT EXISTS (SELECT IdPresupuesto FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto AND Estado = 'E') THEN
+    IF NOT EXISTS (SELECT IdPresupuesto FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto AND Estado IN('E', 'C')) THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_PRESUPUESTO", NULL) pOut;
         LEAVE SALIR;
     END IF;
