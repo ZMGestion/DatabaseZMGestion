@@ -1,4 +1,4 @@
-_DROP PROCEDURE IF EXISTS zsp_comprobante_modificar;
+DROP PROCEDURE IF EXISTS zsp_comprobante_modificar;
 DELIMITER $$
 CREATE PROCEDURE zsp_comprobante_modificar(pIn JSON)
 SALIR: BEGIN
@@ -23,15 +23,16 @@ SALIR: BEGIN
 
     DECLARE pRespuesta JSON;
     
-    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
-    SET pToken = pUsuariosEjecuta ->> "$.Token";
-
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
         SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
     END;
+    
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+
     
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_comprobante_modificar', pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != 'OK' THEN
@@ -68,8 +69,8 @@ SALIR: BEGIN
     
     START TRANSACTION;
         UPDATE Comprobantes
-        SET NumeroComprobante = pNumeroComprobante
-            Tipo = pTipo
+        SET NumeroComprobante = pNumeroComprobante,
+            Tipo = pTipo,
             Monto = pMonto
         WHERE IdComprobante = pIdComprobante;
 

@@ -48,6 +48,10 @@ SALIR: BEGIN
     SET pTipo = COALESCE(pComprobantes ->> "$.Tipo", 'T');
     SET pNumeroComprobante = COALESCE(pComprobantes ->> "$.NumeroComprobante", 0);
 
+    IF pTipo IS NULL OR pTipo = '' THEN
+        SET pTipo = 'T';
+    END IF;
+
     -- Extraigo atributos de la paginacion
     SET pPaginaciones = pIn ->>"$.Paginaciones";
     SET pPagina = pPaginaciones ->> "$.Pagina";
@@ -58,7 +62,7 @@ SALIR: BEGIN
     END IF;
 
     IF pLongitudPagina IS NULL OR pLongitudPagina = 0 THEN
-        SET pLongitudPagina = (SELECT CAST(Valor AS UNSIGNED) FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');
+        SET pLongitudPagina = (SELECT Valor FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');
     END IF;
 
     SET pOffset = (pPagina - 1) * pLongitudPagina;
@@ -71,11 +75,13 @@ SALIR: BEGIN
     FROM Comprobantes 
     WHERE 
     (
-        IdUsuario = pIdUsuario OR pIdUsuario = 0
-        IdVenta = pIdVenta OR pIdVenta = 0
-        Tipo = pTipo OR pTipo = 'T'
-        NumeroComprobante = pNumeroComprobante OR pNumeroComprobante = 0
+        (IdUsuario = pIdUsuario OR pIdUsuario = 0)
+        AND (IdVenta = pIdVenta OR pIdVenta = 0)
+        AND (Tipo = pTipo OR pTipo = 'T')
+        AND (NumeroComprobante = pNumeroComprobante OR pNumeroComprobante = 0)
     );
+
+    SET pCantidadTotal = (SELECT COUNT(*) FROM tmp_comprobantes);
 
     CREATE TEMPORARY TABLE  tmp_comprobantesPaginados AS
     SELECT * 
@@ -89,18 +95,20 @@ SALIR: BEGIN
                     "LongitudPagina", pLongitudPagina,
                     "CantidadTotal", pCantidadTotal
             ),
-            'Comprobantes', JSON_ARRAYAGG(
+            'resultado', JSON_ARRAYAGG(
                 JSON_OBJECT(
-                    'IdComprobante', IdComprobante,
-                    'IdVenta', IdVenta,
-                    'IdUsuario', IdUsuario,
-                    'Tipo', Tipo,
-                    'NumeroComprobante', NumeroComprobante,
-                    'Monto', Monto,
-                    'FechaAlta', FechaAlta,
-                    'FechaBaja', FechaBaja,
-                    'Observaciones', Observaciones,
-                    'Estado', Estado
+                    'Comprobantes', JSON_OBJECT(
+                        'IdComprobante', IdComprobante,
+                        'IdVenta', IdVenta,
+                        'IdUsuario', IdUsuario,
+                        'Tipo', Tipo,
+                        'NumeroComprobante', NumeroComprobante,
+                        'Monto', Monto,
+                        'FechaAlta', FechaAlta,
+                        'FechaBaja', FechaBaja,
+                        'Observaciones', Observaciones,
+                        'Estado', Estado
+                    )
                 )
             )
         )

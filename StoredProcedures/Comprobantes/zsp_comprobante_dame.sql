@@ -14,6 +14,8 @@ SALIR: BEGIN
 
     DECLARE pComprobantes JSON;
     DECLARE pIdComprobante int;
+
+    DECLARE pRespuesta JSON;
     
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
