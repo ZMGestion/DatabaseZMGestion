@@ -21,9 +21,6 @@ SALIR: BEGIN
     DECLARE pObservaciones varchar(255);
 
     DECLARE pRespuesta JSON;
-    
-    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
-    SET pToken = pUsuariosEjecuta ->> "$.Token";
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -32,7 +29,10 @@ SALIR: BEGIN
         ROLLBACK;
     END;
     
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
     CALL zsp_usuario_tiene_permiso(pToken, 'zsp_comprobante_crear', pIdUsuarioEjecuta, pMensaje);
+    
     IF pMensaje != 'OK' THEN
         SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;

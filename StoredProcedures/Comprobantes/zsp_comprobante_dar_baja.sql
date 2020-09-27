@@ -14,6 +14,8 @@ SALIR: BEGIN
     
     DECLARE pComprobantes JSON;
     DECLARE pIdComprobante int;
+
+    DECLARE pRespuesta JSON;
     
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
@@ -25,9 +27,9 @@ SALIR: BEGIN
     END IF;
 
     SET pComprobantes = pIn ->>"$.Comprobantes";
-    SET pIdComprobante = COALESCE(pIn->>"$.IdComprobante", 0);
+    SET pIdComprobante = COALESCE(pComprobantes->>"$.IdComprobante", 0);
 
-    IF NOT EXISTS(SELECT IdComprobante FROM Comprobantes c INNER JOIN Ventas v ON v.IdVenta = c.IdVenta WHERE c.IdComprobante = pIdComprobante AND v.Estado  = 'C' AND c.Estado = 'B') THEN
+    IF NOT EXISTS(SELECT c.IdComprobante FROM Comprobantes c INNER JOIN Ventas v ON v.IdVenta = c.IdVenta WHERE c.IdComprobante = pIdComprobante AND v.Estado  = 'C' AND c.Estado = 'A') THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_COMPROBANTE", NULL) pOut;
         LEAVE SALIR;
     END IF;
@@ -35,7 +37,7 @@ SALIR: BEGIN
 
     START TRANSACTION;
         UPDATE Comprobantes
-        SET Estado = 'B'
+        SET Estado = 'B',
             FechaBaja = NOW()
         WHERE IdComprobante = pIdComprobante;
 
