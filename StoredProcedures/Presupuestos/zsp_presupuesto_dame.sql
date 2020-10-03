@@ -71,7 +71,8 @@ SALIR:BEGIN
                 'PeriodoValidez', p.PeriodoValidez,
                 'FechaAlta', p.FechaAlta,
                 'Observaciones', p.Observaciones,
-                'Estado', p.Estado
+                'Estado', p.Estado,
+                '_PrecioTotal', SUM(lp.Cantidad * lp.PrecioUnitario)
             ),
             "Clientes", JSON_OBJECT(
                 'Nombres', c.Nombres,

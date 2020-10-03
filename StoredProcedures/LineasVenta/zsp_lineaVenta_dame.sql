@@ -53,8 +53,9 @@ SALIR:BEGIN
                 "IdLineaProducto", lp.IdLineaProducto,
                 "IdProductoFinal", lp.IdProductoFinal,
                 "Cantidad", lp.Cantidad,
-                "PrecioUnitario", lp.PrecioUnitario
-                ),
+                "PrecioUnitario", lp.PrecioUnitario,
+                "_PrecioUnitarioActual",  f_calcularPrecioProductoFinal(lp.IdProductoFinal)
+            ),
             "ProductosFinales", JSON_OBJECT(
                 "IdProductoFinal", pf.IdProductoFinal,
                 "IdProducto", pf.IdProducto,
