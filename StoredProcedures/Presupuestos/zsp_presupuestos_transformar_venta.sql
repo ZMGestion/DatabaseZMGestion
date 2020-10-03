@@ -46,7 +46,7 @@ SALIR: BEGIN
     DECLARE pRespuesta JSON;
 
     DECLARE lineasPresupuestos_cursor CURSOR FOR
-        SELECT IdLineaProducto 
+        SELECT lp.IdLineaProducto 
         FROM Presupuestos p
         INNER JOIN LineasProducto lp ON (lp.Tipo = 'P' AND lp.IdReferencia = p.IdPresupuesto)
         WHERE lp.Estado = 'P' AND p.Estado = 'V' AND p.IdVenta = @pIdVenta;

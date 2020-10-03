@@ -150,8 +150,8 @@ SALIR:BEGIN
     START TRANSACTION;
         
         INSERT INTO Clientes (IdCliente,IdPais,IdTipoDocumento,Documento,Tipo,FechaNacimiento,Nombres,Apellidos,RazonSocial,Email,Telefono,FechaAlta,FechaBaja,Estado) VALUES (0, pIdPais, pIdTipoDocumento, pDocumento, pTipo, pFechaNacimiento, pNombres, pApellidos, pRazonSocial, pEmail, pTelefono, NOW(), NULL, 'A');
-        SET pIdCliente = (SELECT IdCliente FROM Clientes WHERE Email = pEmail);
-        IF json_length(pDomicilios) = 0 THEN
+        SET pIdCliente = (SELECT IdCliente FROM Clientes WHERE IdCliente = LAST_INSERT_ID());
+        IF (pDomicilios->>'$.Domicilio' != '' )THEN
             SET pInInterno = JSON_OBJECT("Domicilios", pDomicilios, "Clientes", JSON_OBJECT("IdCliente", pIdCliente));
             -- Armar el JSON para crear el domicilio para el cliente recien creado.
             CALL zsp_domicilio_crear_comun(pInInterno, pIdDomicilio, pRespuesta);

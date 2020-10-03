@@ -18,12 +18,24 @@ SALIR: BEGIN
     DECLARE pVentas JSON;
     DECLARE pIdVenta int;
 
+    DECLARE pFin tinyint;
+    DECLARE pIdLineaPresupuesto bigint;
+
+    DECLARE lineasPresupuestos_cursor CURSOR FOR
+        SELECT lp.IdLineaProducto 
+        FROM Presupuestos p
+        INNER JOIN LineasProducto lp ON (lp.Tipo = 'P' AND lp.IdReferencia = p.IdPresupuesto)
+        WHERE p.IdVenta = pIdVenta AND lp.Estado IN ('U', 'N');
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET pFin=1;
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
         SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        SET SQL_SAFE_UPDATES=1;
         ROLLBACK;
     END;
+
     
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
@@ -48,13 +60,30 @@ SALIR: BEGIN
     END IF;
 
     START TRANSACTION;
-        SET @pIdPresupuesto = (SELECT IdPresupuesto FROM Presupuestos WHERE IdVenta = pIdVenta);
-        SET @pIdPresupuesto = COALESCE(@pIdPresupuesto, 0);
-        IF @pIdPresupuesto != 0 THEN
-            UPDATE LineasProducto
-            SET Estado = 'P'
-            WHERE Tipo = 'P' AND IdReferencia = @pIdPresupuesto;
+        IF EXISTS(SELECT IdPresupuesto FROM Presupuestos WHERE IdVenta = pIdVenta) THEN
+            SET SQL_SAFE_UPDATES=0;
+
+            OPEN lineasPresupuestos_cursor;
+                get_lineaPresupuesto: LOOP
+                    FETCH lineasPresupuestos_cursor INTO pIdLineaPresupuesto;
+                    IF pFin = 1 THEN
+                        LEAVE get_lineaPresupuesto;
+                    END IF;
+
+                    UPDATE LineasProducto
+                    SET Estado = 'P'
+                    WHERE IdLineaProducto = pIdLineaPresupuesto;
+                END LOOP get_lineaPresupuesto;
+            CLOSE lineasPresupuestos_cursor;
+
+            UPDATE Presupuestos
+            SET Estado = 'C',
+                IdVenta = NULL 
+            WHERE IdVenta = pIdVenta;
+
+            SET SQL_SAFE_UPDATES=1;
         END IF;
+
 
         DELETE
         FROM Ventas
