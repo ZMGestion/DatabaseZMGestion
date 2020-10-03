@@ -81,31 +81,27 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-
-    START TRANSACTION;
-        SET pIdDomicilio = (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad);
-        -- En caso que el domicilio exista y el cliente no sea null, lo asocia al cliente con el domicilio
-        IF (pIdDomicilio IS NOT NULL) THEN
-            IF (pIdCliente IS NOT NULL) THEN
-                IF NOT EXISTS (SELECT IdDomicilio FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente = pIdCliente) THEN
-                    INSERT INTO DomiciliosCliente VALUES (pIdDomicilio, pIdCliente, NOW());
-                    SET pOut = NULL;
-                END IF;       
-            ELSE
-                SET pOut = f_generarRespuesta("ERROR_EXISTE_DOMICILIO", NULL);
-                 
-            END IF;
-        -- Si el domicilio no existe lo crea y lo asocia al cliente en caso de ser necesario
-        ELSE
-            INSERT INTO Domicilios (IdDomicilio,IdCiudad,IdProvincia,IdPais,Domicilio,CodigoPostal,FechaAlta,Observaciones) VALUES (0, pIdCiudad, pIdProvincia, pIdPais, pDomicilio, pCodigoPostal, NOW(), pObservaciones);
-            SET pIdDomicilio = (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad);
-            IF (pIdCliente IS NOT NULL) THEN
+    SET pIdDomicilio = (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad);
+    -- En caso que el domicilio exista y el cliente no sea null, lo asocia al cliente con el domicilio
+    IF (pIdDomicilio IS NOT NULL) THEN
+        IF (pIdCliente IS NOT NULL) THEN
+            IF NOT EXISTS (SELECT IdDomicilio FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente = pIdCliente) THEN
                 INSERT INTO DomiciliosCliente VALUES (pIdDomicilio, pIdCliente, NOW());
-            END IF;
-            SET pOut = NULL;
+                SET pOut = NULL;
+            END IF;       
+        ELSE
+            SET pOut = f_generarRespuesta("ERROR_EXISTE_DOMICILIO", NULL);
+                
         END IF;
-
-    COMMIT;
+    -- Si el domicilio no existe lo crea y lo asocia al cliente en caso de ser necesario
+    ELSE
+        INSERT INTO Domicilios (IdDomicilio,IdCiudad,IdProvincia,IdPais,Domicilio,CodigoPostal,FechaAlta,Observaciones) VALUES (0, pIdCiudad, pIdProvincia, pIdPais, pDomicilio, pCodigoPostal, NOW(), pObservaciones);
+        SET pIdDomicilio = (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad);
+        IF (pIdCliente IS NOT NULL) THEN
+            INSERT INTO DomiciliosCliente VALUES (pIdDomicilio, pIdCliente, NOW());
+        END IF;
+        SET pOut = NULL;
+    END IF;
 
 END $$
 DELIMITER ;

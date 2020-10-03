@@ -35,32 +35,33 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    CALL zsp_domicilio_crear_comun(pIn, pIdDomicilio, pRespuesta);
+    START TRANSACTION;
+        CALL zsp_domicilio_crear_comun(pIn, pIdDomicilio, pRespuesta);
 
-    IF pIdDomicilio IS NULL THEN
-        SELECT pRespuesta pOut;
-        LEAVE SALIR;
-    END IF;
+        IF pIdDomicilio IS NULL THEN
+            SELECT pRespuesta pOut;
+            LEAVE SALIR;
+        END IF;
 
-    SET pRespuesta = (
-    SELECT CAST(
-            COALESCE(
-                JSON_OBJECT(
-                    'IdDomicilio', IdDomicilio,
-                    'IdCiudad', IdCiudad,
-                    'IdProvincia', IdProvincia,
-                    'IdPais', IdPais,
-                    'Domicilio', Domicilio,
-                    'CodigoPostal', CodigoPostal,
-                    'FechaAlta', FechaAlta,
-                    'Observaciones', Observaciones
-                )
-            ,'') AS JSON)
-    FROM	Domicilios
-    WHERE	IdDomicilio = pIdDomicilio
-    );
-	SELECT f_generarRespuesta(NULL, JSON_OBJECT("Domicilios", pRespuesta)) AS pOut;
-
+        SET pRespuesta = (
+        SELECT CAST(
+                COALESCE(
+                    JSON_OBJECT(
+                        'IdDomicilio', IdDomicilio,
+                        'IdCiudad', IdCiudad,
+                        'IdProvincia', IdProvincia,
+                        'IdPais', IdPais,
+                        'Domicilio', Domicilio,
+                        'CodigoPostal', CodigoPostal,
+                        'FechaAlta', FechaAlta,
+                        'Observaciones', Observaciones
+                    )
+                ,'') AS JSON)
+        FROM	Domicilios
+        WHERE	IdDomicilio = pIdDomicilio
+        );
+        SELECT f_generarRespuesta(NULL, JSON_OBJECT("Domicilios", pRespuesta)) AS pOut;
+    COMMIT;
 END $$
 DELIMITER ;
 
