@@ -57,6 +57,7 @@ SALIR: BEGIN
                         'IdReferencia', lp.IdReferencia,
                         'Tipo', lp.Tipo,
                         'PrecioUnitario', lp.PrecioUnitario,
+                        "_PrecioUnitarioActual",  f_calcularPrecioProductoFinal(lp.IdProductoFinal),
                         'Cantidad', lp.Cantidad,
                         'FechaAlta', lp.FechaAlta,
                         'FechaCancelacion', lp.FechaCancelacion,
