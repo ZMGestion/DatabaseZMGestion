@@ -53,6 +53,12 @@ SALIR: BEGIN
         END IF;
     END IF;
 
+    SET @pFacturado = (
+        SELECT SUM(IF(Tipo IN ('A', 'B'), Monto, -1 * Monto)) 
+        FROM Comprobantes 
+        WHERE IdVenta = pIdVenta AND Estado = 'A' AND Tipo IN ('A', 'B', 'M', 'N')
+    );
+
     SET pRespuesta = (
         SELECT JSON_OBJECT(
             "Ventas",  JSON_OBJECT(
@@ -64,7 +70,8 @@ SALIR: BEGIN
                 'FechaAlta', v.FechaAlta,
                 'Observaciones', v.Observaciones,
                 'Estado', f_calcularEstadoVenta(v.IdVenta),
-                '_PrecioTotal', SUM(lp.Cantidad * lp.PrecioUnitario)
+                '_PrecioTotal', SUM(lp.Cantidad * lp.PrecioUnitario),
+                '_Facturado', COALESCE(@pFacturado, 0)
             ),
             "Clientes", JSON_OBJECT(
                 'Nombres', c.Nombres,
