@@ -88,7 +88,7 @@ SALIR: BEGIN
                         "IdProductoFinal", lp.IdProductoFinal,
                         "Cantidad", lp.Cantidad,
                         "PrecioUnitario", lp.PrecioUnitario,
-                        "Estado", lp.Estado
+                        "Estado", f_dameEstadoLineaVenta(lp.IdLineaProducto)
                     ),
                     "ProductosFinales", JSON_OBJECT(
                         "IdProductoFinal", pf.IdProductoFinal,
@@ -99,6 +99,7 @@ SALIR: BEGIN
                     ),
                     "Productos",JSON_OBJECT(
                         "IdProducto", pr.IdProducto,
+                        "IdTipoProducto", pr.IdTipoProducto,
                         "Producto", pr.Producto
                     ),
                     "Telas",IF (te.IdTela  IS NOT NULL,

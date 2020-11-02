@@ -15,8 +15,7 @@ SALIR:BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
-    -- Linea de presupuesto
-    DECLARE pLineasProducto JSON;
+    -- Linea de presupuesto a crear
     DECLARE pIdLineaProducto bigint;
 
     -- Para la respuesta
@@ -39,15 +38,14 @@ SALIR:BEGIN
     END IF;
 
     -- Extraigo atributos de la linea de presupuesto
-    SET pLineasProducto = pIn ->> "$.LineasProducto";
-    SET pIdLineaProducto = COALESCE(pLineasProducto ->> "$.IdLineaProducto", 0);
+    SET pIdLineaProducto = COALESCE(pIn->>"$.LineasProducto.IdLineaProducto", 0);
 
-    IF NOT EXISTS (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) THEN
+    IF NOT EXISTS (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto AND Tipo = 'P') THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_LINEAPRESUPUESTO", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
-    IF (SELECT Estado FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) != 'P' AND THEN
+    IF (SELECT Estado FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) <> 'P' THEN
         SELECT f_generarRespuesta("ERROR_BORRAR_LINEAPRESUPUESTO", NULL) pOut;
         LEAVE SALIR;
     END IF;
