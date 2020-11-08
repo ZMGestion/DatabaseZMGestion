@@ -1,139 +1,119 @@
 {
-    "nuevo_sp": {
-        "scope": "sql",
-        "prefix": [
-            "procedure"
-        ],
-        "body": [
-            "DROP PROCEDURE IF EXISTS $TM_FILENAME_BASE;",
-            "DELIMITER $$",
-            "CREATE PROCEDURE $TM_FILENAME_BASE(pIn JSON)",
-            "SALIR: BEGIN",
-            "\t/*",
-            "\t\t${1:Descripción del sp}",
-            "",
-            "\t*/",
-            "\t$0",
-            "END $$",
-            "DELIMITER ;"
-        ],
-        "description": "Estructura de un nuevo SP"
-    },
-    "agregar_handler": {
-        "scope": "sql",
-        "prefix": [
-            "handler"
-        ],
-        "body": [
-            "DECLARE EXIT HANDLER FOR SQLEXCEPTION",
-            "BEGIN",
-            "\tSHOW ERRORS;",
-            "\tSELECT f_generarRespuesta(\"ERROR_TRANSACCION\", NULL) pOut;",
-            "\tROLLBACK;",
-            "END;"
-        ],
-        "description": "Handler de una transacción"
-    },
-    "agregar_error": {
-        "scope": "sql",
-        "prefix": [
-            "error"
-        ],
-        "body": [
-            "SELECT f_generarRespuesta(\"$1\", NULL) pOut;",
-            "LEAVE SALIR;"
-        ],
-        "description": "Respuesta de error en un control"
-    },
-    "agregar_respuesta": {
-        "scope": "sql",
-        "prefix": "respuesta",
-        "body": [
-            "SELECT f_generarRespuesta(\"$1\", NULL) pOut;",
-        ],
-        "description": "Respuesta"
-    },
-    "agregar_control_permisos": {
-        "scope": "sql",
-        "prefix": [
-            "permisos"
-        ],
-        "body": [
-            "-- Control de permisos",
-            "DECLARE pUsuariosEjecuta JSON;",
-            "DECLARE pIdUsuarioEjecuta smallint;",
-            "DECLARE pToken varchar(256);",
-            "DECLARE pMensaje text;\n",
+  "nuevo_sp": {
+    "scope": "sql",
+    "prefix": ["procedure"],
+    "body": [
+      "DROP PROCEDURE IF EXISTS $TM_FILENAME_BASE;",
+      "DELIMITER $$",
+      "CREATE PROCEDURE $TM_FILENAME_BASE(pIn JSON)",
+      "SALIR: BEGIN",
+      "\t/*",
+      "\t\t${1:Descripción del sp}",
+      "",
+      "\t*/",
+      "\t$0",
+      "END $$",
+      "DELIMITER ;"
+    ],
+    "description": "Estructura de un nuevo SP"
+  },
+  "agregar_handler": {
+    "scope": "sql",
+    "prefix": ["handler"],
+    "body": [
+      "DECLARE EXIT HANDLER FOR SQLEXCEPTION",
+      "BEGIN",
+      "\tSHOW ERRORS;",
+      "\tSELECT f_generarRespuesta(\"ERROR_TRANSACCION\", NULL) pOut;",
+      "\tROLLBACK;",
+      "END;"
+    ],
+    "description": "Handler de una transacción"
+  },
+  "agregar_error": {
+    "scope": "sql",
+    "prefix": ["error"],
+    "body": ["SELECT f_generarRespuesta(\"$1\", NULL) pOut;", "LEAVE SALIR;"],
+    "description": "Respuesta de error en un control"
+  },
+  "agregar_respuesta": {
+    "scope": "sql",
+    "prefix": "respuesta",
+    "body": ["SELECT f_generarRespuesta(\"$1\", NULL) pOut;"],
+    "description": "Respuesta"
+  },
+  "agregar_control_permisos": {
+    "scope": "sql",
+    "prefix": ["permisos"],
+    "body": [
+      "-- Control de permisos",
+      "DECLARE pUsuariosEjecuta JSON;",
+      "DECLARE pIdUsuarioEjecuta smallint;",
+      "DECLARE pToken varchar(256);",
+      "DECLARE pMensaje text;\n",
 
-            "\nSET pUsuariosEjecuta = pIn ->> \"$.UsuariosEjecuta\";",
-            "SET pToken = pUsuariosEjecuta ->> \"$.Token\";\n",
+      "\nSET pUsuariosEjecuta = pIn ->> \"$.UsuariosEjecuta\";",
+      "SET pToken = pUsuariosEjecuta ->> \"$.Token\";\n",
 
-            "CALL zsp_usuario_tiene_permiso(pToken, '$TM_FILENAME_BASE', pIdUsuarioEjecuta, pMensaje);",
-            "IF pMensaje != 'OK' THEN",
-            "\tSELECT f_generarRespuesta(pMensaje, NULL) pOut;",
-            "\tLEAVE SALIR;",
-            "END IF;",
-        ],
-        "description": "Control de permisos"
-    },
-    "transaction": {
-        "scope": "sql",
-        "prefix": [
-            "transaction"
-        ],
-        "body": [
-            "START TRANSACTION;\n\n",
-            "COMMIT;",
-        ],
-        "description": "Definicion de una transaccion"
-    },
-    "agregar_paginacion": {
-        "scope": "sql",
-        "prefix": [
-            "paginacion"
-        ],
-        "body": [
-            "-- Paginacion",
-            "DECLARE pPaginaciones JSON;",
-            "DECLARE pPagina INT;",
-            "DECLARE pLongitudPagina INT;",
-            "DECLARE pCantidadTotal INT;",
-            "DECLARE pOffset INT;",
-            "\n-- ResultSet",
-            "DECLARE pRespuesta JSON;",
-            "\nSET pPaginaciones = pIn ->>'$.Paginaciones';",
-            "SET pPagina = COALESCE(pPaginaciones ->> '$.Pagina', 1);",
-            "SET pLongitudPagina = pPaginaciones ->> '$.LongitudPagina';",
-            "\nIF pLongitudPagina IS NULL OR pLongitudPagina = 0 THEN",
-            "\tSET pLongitudPagina = (SELECT Valor FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');",
-            "END IF;",
-            "\nSET pOffset = (pPagina - 1) * pLongitudPagina;",
-            "\nDROP TEMPORARY TABLE IF EXISTS tmp_ResultadoBusquedaSinPaginar;",
-            "CREATE TEMPORARY TABLE tmp_ResultadoBusquedaSinPaginar AS\n$1;",
-            "-- Para devolver CantidadTotal en Paginaciones",
-            "SET pCantidadTotal = (SELECT COUNT(*) FROM tmp_ResultadoBusquedaSinPaginar);",
-            "SELECT JSON_OBJECT(",
-            "\t'response', JSON_OBJECT(",
-            "\t\t'Paginaciones', JSON_OBJECT(",
-            "\t\t\t'LongitudPagina', pLongitudPagina,",
-            "\t\t\t'CantidadTotal', pCantidadTotal,",
-            "\t\t\t'Pagina', pPagina",
-            "\t\t),",
-            "\t\t'$2',",
-            "\t\tJSON_ARRAYAGG(",
-            "\t\t\tJSON_OBJECT(",
-            "\t\t\t\t'$3', $4",
-            "\t\t\t)",
-            "\t\t)",
-            "\t)",
-            ")",
-            "FROM (",
-            "\tSELECT *",
-            "\tFROM tmp_ResultadoBusquedaSinPaginar",
-            "\tLIMIT pOffset, pLongitudPagina",
-            ");",
-            "\nDROP TEMPORARY TABLE IF EXISTS tmp_ResultadoBusquedaSinPaginar;"
-        ],
-        "description": "Todo lo necesario para paginar"
-    }
+      "CALL zsp_usuario_tiene_permiso(pToken, '$TM_FILENAME_BASE', pIdUsuarioEjecuta, pMensaje);",
+      "IF pMensaje != 'OK' THEN",
+      "\tSELECT f_generarRespuesta(pMensaje, NULL) pOut;",
+      "\tLEAVE SALIR;",
+      "END IF;"
+    ],
+    "description": "Control de permisos"
+  },
+  "transaction": {
+    "scope": "sql",
+    "prefix": ["transaction"],
+    "body": ["START TRANSACTION;\n\n", "COMMIT;"],
+    "description": "Definicion de una transaccion"
+  },
+  "agregar_paginacion": {
+    "scope": "sql",
+    "prefix": ["paginacion"],
+    "body": [
+      "-- Paginacion",
+      "DECLARE pPaginaciones JSON;",
+      "DECLARE pPagina INT;",
+      "DECLARE pLongitudPagina INT;",
+      "DECLARE pCantidadTotal INT;",
+      "DECLARE pOffset INT;",
+      "\n-- ResultSet",
+      "DECLARE pRespuesta JSON;",
+      "\nSET pPaginaciones = pIn ->>'$.Paginaciones';",
+      "SET pPagina = COALESCE(pPaginaciones ->> '$.Pagina', 1);",
+      "SET pLongitudPagina = pPaginaciones ->> '$.LongitudPagina';",
+      "\nIF pLongitudPagina IS NULL OR pLongitudPagina = 0 THEN",
+      "\tSET pLongitudPagina = (SELECT Valor FROM Empresa WHERE Parametro = 'LONGITUDPAGINA');",
+      "END IF;",
+      "\nSET pOffset = (pPagina - 1) * pLongitudPagina;",
+      "\nDROP TEMPORARY TABLE IF EXISTS tmp_ResultadoBusquedaSinPaginar;",
+      "CREATE TEMPORARY TABLE tmp_ResultadoBusquedaSinPaginar AS\n$1;",
+      "-- Para devolver CantidadTotal en Paginaciones",
+      "SET pCantidadTotal = (SELECT COUNT(*) FROM tmp_ResultadoBusquedaSinPaginar);",
+      "SELECT JSON_OBJECT(",
+      "\t'response', JSON_OBJECT(",
+      "\t\t'Paginaciones', JSON_OBJECT(",
+      "\t\t\t'LongitudPagina', pLongitudPagina,",
+      "\t\t\t'CantidadTotal', pCantidadTotal,",
+      "\t\t\t'Pagina', pPagina",
+      "\t\t),",
+      "\t\t'$2',",
+      "\t\tJSON_ARRAYAGG(",
+      "\t\t\tJSON_OBJECT(",
+      "\t\t\t\t'$3', $4",
+      "\t\t\t)",
+      "\t\t)",
+      "\t)",
+      ")",
+      "FROM (",
+      "\tSELECT *",
+      "\tFROM tmp_ResultadoBusquedaSinPaginar",
+      "\tLIMIT pOffset, pLongitudPagina",
+      ");",
+      "\nDROP TEMPORARY TABLE IF EXISTS tmp_ResultadoBusquedaSinPaginar;"
+    ],
+    "description": "Todo lo necesario para paginar"
+  }
 }

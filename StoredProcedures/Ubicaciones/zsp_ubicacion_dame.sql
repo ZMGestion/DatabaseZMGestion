@@ -74,20 +74,20 @@ SALIR:BEGIN
                         'FechaAlta', d.FechaAlta,
                         'Observaciones', d.Observaciones
                     ),
-                    'Ciudades', JSON_OBJECT(
+                    "Ciudades", JSON_OBJECT(
                         'IdCiudad', c.IdCiudad,
                         'IdProvincia', c.IdProvincia,
                         'IdPais', c.IdPais,
                         'Ciudad', c.Ciudad
                     ),
-                    'Provincias', JSON_OBJECT(
-                            'IdProvincia', pr.IdProvincia,
-                            'IdPais', pr.IdPais,
-                            'Provincia', pr.Provincia
+                    "Provincias", JSON_OBJECT(
+                        'IdProvincia', pr.IdProvincia,
+                        'IdPais', pr.IdPais,
+                        'Provincia', pr.Provincia
                     ),
-                    'Paises', JSON_OBJECT(
-                            'IdPais', p.IdPais,
-                            'Pais', p.Pais
+                    "Paises", JSON_OBJECT(
+                        'IdPais', p.IdPais,
+                        'Pais', p.Pais
                     )
                 )
              AS JSON)
