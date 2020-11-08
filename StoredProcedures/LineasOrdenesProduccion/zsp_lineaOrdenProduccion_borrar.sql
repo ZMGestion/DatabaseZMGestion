@@ -41,14 +41,14 @@ SALIR:BEGIN
     SET pIdLineaProducto = COALESCE(pIn ->> "$.LineasProducto.IdLineaProducto", 0);
 
     IF NOT EXISTS (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto AND Tipo = 'O') THEN
-        SELECT f_generarRespuesta("ERROR_NOEXISTE_LINEAORDENPRODUCCION", NULL) pOut;
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_LINEA_ORDEN_PRODUCCION", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     IF (SELECT Estado FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto) != 'F' 
         OR EXISTS(SELECT IdTarea FROM Tareas WHERE IdLineaProducto = pIdLineaProducto AND Estado NOT IN('P','C'))
     THEN
-        SELECT f_generarRespuesta("ERROR_BORRAR_LINEAORDENPRODUCCION", NULL) pOut;
+        SELECT f_generarRespuesta("ERROR_BORRAR_LINEA_ORDEN_PRODUCCION", NULL) pOut;
         LEAVE SALIR;
     END IF;
 

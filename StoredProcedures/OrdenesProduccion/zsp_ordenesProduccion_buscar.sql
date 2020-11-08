@@ -66,7 +66,7 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    -- Extraigo atributos del presupuesto
+    -- Extraigo atributos de la orden de producción
     SET pIdUsuario = COALESCE(pIn ->> "$.OrdenesProduccion.IdUsuario", 0);
     SET pEstado = COALESCE(pIn ->> "$.OrdenesProduccion.Estado", 'T');
 
@@ -113,7 +113,7 @@ SALIR:BEGIN
     DROP TEMPORARY TABLE IF EXISTS tmp_lineasOrdenesProduccion;
 
 
--- Presupuestos que cumplen con las condiciones
+    -- Órdenes de producción que cumplen con las condiciones
     CREATE TEMPORARY TABLE tmp_OrdenesProduccion
     AS SELECT op.IdOrdenProduccion AS IdOrdenProduccion
     FROM OrdenesProduccion op
@@ -133,7 +133,7 @@ SALIR:BEGIN
 
     SET pCantidadTotal = (SELECT COUNT(DISTINCT IdOrdenProduccion) FROM tmp_OrdenesProduccion);
 
-    -- Ordenes de producción buscadas paginadas
+    -- Órdenes de producción buscadas paginadas
     CREATE TEMPORARY TABLE tmp_OrdenesProduccionPaginadas AS
     SELECT DISTINCT IdOrdenProduccion
     FROM tmp_OrdenesProduccion
@@ -142,7 +142,7 @@ SALIR:BEGIN
 
     SET SESSION GROUP_CONCAT_MAX_LEN=150000;
 
-    -- Resultset de los presupuestos con sus montos totales
+    -- Lineas de las órdenes de producción
     CREATE TEMPORARY TABLE tmp_lineasOrdenesProduccion AS
     SELECT  
 		tmpp.IdOrdenProduccion,
@@ -196,7 +196,6 @@ SALIR:BEGIN
                     "OrdenesProduccion",  JSON_OBJECT(
                         'IdOrdenProduccion', op.IdOrdenProduccion,
                         'IdUsuario', op.IdUsuario,
-                        'IdVenta', op.IdVenta,
                         'FechaAlta', op.FechaAlta,
                         'Observaciones', op.Observaciones,
                         'Estado', f_dameEstadoOrdenProduccion(op.IdOrdenProduccion)

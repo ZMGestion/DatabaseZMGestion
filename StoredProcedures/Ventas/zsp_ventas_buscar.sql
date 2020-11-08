@@ -85,7 +85,7 @@ SALIR: BEGIN
     IF CHAR_LENGTH(COALESCE(pIn ->>"$.ParametrosBusqueda.FechaFin", '')) = 0 THEN
         SET pFechaFin = NOW();
     ELSE
-        SET pFechaFin = pIn ->>"$.ParametrosBusqueda.FechaFin";
+        SET pFechaFin = CONCAT(pIn ->>"$.ParametrosBusqueda.FechaFin"," 23:59:59");
     END IF;
 
     -- Arreglo el orden de las fechas

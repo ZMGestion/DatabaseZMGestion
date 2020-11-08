@@ -7,13 +7,21 @@ SALIR: BEGIN
 
         pIn = {
             LineasVenta = [
-                IdLineaVenta,
+                {
+                    Cantidad,
+                    IdProductoFinal,
+                    IdLineasPadre,
+                }
                 ...
             ],
-            Cantidades = {
-                IdLineaVenta: Cantidad,
+            LineasOrdenProduccion = [
+                {
+                    Cantidad,
+                    IdProductoFinal,
+                    IdLineasPadre,
+                }
                 ...
-            },
+            ],
             Observaciones,
         }
     */
@@ -25,10 +33,20 @@ SALIR: BEGIN
 
     DECLARE pRespuesta JSON;
     DECLARE pLineasVenta JSON;
-    DECLARE pCantidades JSON;
+    DECLARE pLineaOrdenProduccionVenta JSON;
+    DECLARE pLineasOrdenProduccion JSON;
+    DECLARE pCantidad INT;
+    DECLARE pIdProductoFinal INT;
     DECLARE pObservaciones VARCHAR(255);
+    DECLARE pIdLineasPadre JSON;
 
-    DECLARE
+    DECLARE pLongitud INT UNSIGNED;
+    DECLARE pIndex INT UNSIGNED DEFAULT 0;
+    DECLARE pLongitudInterna INT UNSIGNED;
+    DECLARE pInternalIndex INT UNSIGNED DEFAULT 0;
+    DECLARE pCantidadRestante INT DEFAULT 0;
+    DECLARE pCantidadActual INT DEFAULT 0;
+    DECLARE pIdLineaVentaPadre BIGINT;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -46,32 +64,53 @@ SALIR: BEGIN
     END IF;
 
     SET pLineasVenta = COALESCE(pIn ->> "$.LineasVenta", JSON_ARRAY());
+    SET pLineasOrdenProduccion = COALESCE(pIn ->> "$.LineasOrdenProduccion", JSON_ARRAY());
     SET pObservaciones = pIn ->> "$.Observaciones";
     SET pLongitud = JSON_LENGTH(pLineasVenta);
 
     START TRANSACTION;
 
+        INSERT INTO OrdenesProduccion (IdOrdenProduccion, IdUsuario, FechaAlta, Observaciones, Estado)
+        VALUES (0, pIdUsuarioEjecuta, NOW(), pObservaciones, 'P');
+        SET @pIdOrdenProduccion = LAST_INSERT_ID();
+
         WHILE pIndex < pLongitud DO
-            SET pIdLineaVenta = JSON_EXTRACT(pLineasVenta, CONCAT("$[", pIndex, "]"));
+            SET pLineaOrdenProduccionVenta = JSON_EXTRACT(pLineasVenta, CONCAT("$[", pIndex, "]"));
+            SET pCantidad = COALESCE(pLineaOrdenProduccionVenta->>"$.Cantidad",-1);
+            SET pIdProductoFinal = pLineaOrdenProduccionVenta->>"$.IdProductoFinal";
+            SET pIdLineasPadre = COALESCE(pLineaOrdenProduccionVenta->>"$.IdLineasPadre",JSON_ARRAY());
 
-            IF pIndex = 0 THEN
-                SET pIdVenta = (SELECT IdReferencia FROM LineasProducto WHERE IdLineaProducto = pIdLineaVenta);
+            SET pLongitud = JSON_LENGTH(pIdLineasPadre);
+            WHILE pInternalIndex < pLongitud DO
+                SET pIdLineaVentaPadre = JSON_EXTRACT(pIdLineasPadre, CONCAT("$[", pInternalIndex, "]"));
+                SET pCantidadActual = (
+                    SELECT Cantidad
+                    FROM LineasProducto 
+                    WHERE 
+                        Tipo = 'V' 
+                        AND IdReferencia = pIdLineaVentaPadre
+                        AND f_dameEstadoLineaVenta(IdLineaProducto) = 'P'
+                );
 
-                INSERT INTO OrdenesProduccion (IdOrdenProduccion, IdUsuario, IdVenta, FechaAlta, Observaciones, Estado)
-                VALUES (0, pIdUsuarioEjecuta, pIdVenta, NOW(), pObservaciones, 'P');
-                SET @pIdVenta = LAST_INSERT_ID();
-            ELSE
-                IF (SELECT IdReferencia FROM LineasProducto WHERE IdLineaProducto = pIdLineaVenta) !=  pIdVenta THEN
-                    SELECT f_generarRespuesta("ERROR", NULL) pOut;
+                SET pCantidadRestante := pCantidadRestante - pCantidadActual;
+                IF pCantidadRestante < 0 THEN
+                    SELECT f_generarRespuesta("ERROR_ORDEN_PRODUCCION_CANTIDAD_LINEA_VENTA", NULL) pOut;
                     LEAVE SALIR;
                 END IF;
+
+                INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) 
+                VALUES(0, pIdLineaVentaPadre, pIdProductoFinal, NULL, @pIdOrdenProduccion, 'O', NULL, pCantidad, NOW(), NULL, 'F');
+
+                SET pInternalIndex := pInternalIndex + 1;
+            END WHILE;
+
+            IF pCantidadRestante > 0 THEN
+                INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) 
+                VALUES(0, NULL, pIdProductoFinal, NULL, @pIdOrdenProduccion, 'O', NULL, pCantidad, NOW(), NULL, 'F');
             END IF;
             
             SET pIndex := pIndex + 1;
         END WHILE;
-
-    
-        INSERT INTO OrdenesProduccion (IdOrdenProduccion, IdUsuario, IdVenta, FechaAlta, Observaciones, Estado) VALUES (0, pIdUsuarioEjecuta, pIdVenta, NOW(), pObservaciones, 'E');
 
         SET pRespuesta = (
             SELECT CAST(
@@ -79,7 +118,6 @@ SALIR: BEGIN
                     "OrdenesProduccion",  JSON_OBJECT(
                         'IdOrdenProduccion', IdOrdenProduccion,
                         'IdUsuario', IdUsuario,
-                        'IdVenta', IdVenta,
                         'FechaAlta', FechaAlta,
                         'Observaciones', Observaciones,
                         'Estado', Estado

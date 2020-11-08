@@ -45,49 +45,23 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF (SELECT IdVenta FROM OrdenesProduccion WHERE IdOrdenProduccion = pIdOrdenProduccion) IS NOT NULL THEN
-        /*
-            Controlamos que todas las lineas ingresadas se correspondan a una linea de venta pendiente cuyos productos sean producibles/fabricables
-        */ 
-        IF EXISTS(
-            SELECT
-                lv.IdLineaProducto,
-                COUNT(lr.Estado) CantidadLineasRemito,
-                COUNT(lr.Estado='C') CantidadCanceladas
-            FROM OrdenesProduccion op
-            INNER JOIN LineasProducto lv ON (lv.Tipo = 'V' AND lv.IdReferencia = op.IdVenta)
-            INNER JOIN LineasProducto lop ON (lop.Tipo = 'O' AND lop.IdReferencia = op.IdOrdenProduccion AND lop.IdLineaProductoPadre = lv.IdLineaProducto)
-            INNER JOIN ProductosFinales pf ON (pf.IdProductoFinal = lv.IdProductoFinal)
-            INNER JOIN Productos p ON (p.IdProducto = pf.IdProducto)
-            LEFT JOIN LineasProducto lr ON (lr.Tipo = 'R' AND lr.IdLineaProductoPadre = lv.IdLineaProducto)
-            WHERE 
-                op.IdOrdenProduccion = pIdOrdenProduccion
-                AND (lv.Estado != 'P' OR p.IdTipoProducto != 'P')
-            GROUP BY lv.IdLineaProducto
-            HAVING CantidadLineasRemito != CantidadCanceladas
-        ) THEN
-            SELECT f_generarRespuesta("ERROR_INVALIDO_LINEA_ORDEN_PRODUCCION", NULL) pOut;
-            LEAVE SALIR;
-        END IF;
-    ELSE
-        /*
-            Controlamos que todas las lineas ingresadas sean producibles/fabricables
-        */
-        IF EXISTS(
-            SELECT
-                lop.IdLineaProducto
-            FROM OrdenesProduccion op
-            INNER JOIN LineasProducto lop ON (lop.Tipo = 'O' AND lop.IdReferencia = op.IdOrdenProduccion)
-            INNER JOIN ProductosFinales pf ON (pf.IdProductoFinal = lop.IdProductoFinal)
-            INNER JOIN Productos p ON (p.IdProducto = pf.IdProducto)
-            LEFT JOIN LineasProducto lp ON (lp.IdLineaProducto = lop.IdLineaProducto)
-            WHERE 
-                op.IdOrdenProduccion = pIdOrdenProduccion
-                AND (p.IdTipoProducto != 'P')
-        ) THEN
-            SELECT f_generarRespuesta("ERROR_INVALIDO_LINEA_ORDEN_PRODUCCION", NULL) pOut;
-            LEAVE SALIR;
-        END IF;
+    /*
+        Controlamos que todas las lineas sean producibles
+    */
+    IF EXISTS(
+        SELECT
+            lop.IdLineaProducto
+        FROM OrdenesProduccion op
+        INNER JOIN LineasProducto lop ON (lop.Tipo = 'O' AND lop.IdReferencia = op.IdOrdenProduccion)
+        INNER JOIN ProductosFinales pf ON (pf.IdProductoFinal = lop.IdProductoFinal)
+        INNER JOIN Productos p ON (p.IdProducto = pf.IdProducto)
+        LEFT JOIN LineasProducto lp ON (lp.IdLineaProducto = lop.IdLineaProducto)
+        WHERE 
+            op.IdOrdenProduccion = pIdOrdenProduccion
+            AND (p.IdTipoProducto != 'P')
+    ) THEN
+        SELECT f_generarRespuesta("ERROR_INVALIDO_LINEA_ORDEN_PRODUCCION", NULL) pOut;
+        LEAVE SALIR;
     END IF;
 
     START TRANSACTION;
@@ -101,7 +75,6 @@ SALIR: BEGIN
                     "OrdenesProduccion",  JSON_OBJECT(
                         'IdOrdenProduccion', IdOrdenProduccion,
                         'IdUsuario', IdUsuario,
-                        'IdVenta', IdVenta,
                         'FechaAlta', FechaAlta,
                         'Observaciones', Observaciones,
                         'Estado', Estado

@@ -44,7 +44,6 @@ SALIR: BEGIN
                 "OrdenesProduccion",  JSON_OBJECT(
                     'IdOrdenProduccion', op.IdOrdenProduccion,
                     'IdUsuario', op.IdUsuario,
-                    'IdVenta', op.IdVenta,
                     'FechaAlta', op.FechaAlta,
                     'Observaciones', op.Observaciones,
                     'Estado', f_dameEstadoOrdenProduccion(op.IdOrdenProduccion)
@@ -58,9 +57,10 @@ SALIR: BEGIN
                         "LineasProducto", JSON_OBJECT(
                             "IdLineaProducto", lp.IdLineaProducto,
                             "IdProductoFinal", lp.IdProductoFinal,
+                            "IdLineaProductoPadre", lp.IdLineaProductoPadre,
                             "Cantidad", lp.Cantidad,
                             "PrecioUnitario", lp.PrecioUnitario,
-                            "Estado", lp.Estado
+                            "Estado", f_dameEstadoLineaOrdenProduccion(lp.IdLineaProducto)
                         ),
                         "ProductosFinales", JSON_OBJECT(
                             "IdProductoFinal", pf.IdProductoFinal,

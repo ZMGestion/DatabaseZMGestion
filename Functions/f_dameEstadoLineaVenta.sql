@@ -1,7 +1,7 @@
 DROP FUNCTION IF EXISTS `f_dameEstadoLineaVenta`;
 DELIMITER $$
 /*
-    Permite determinar el estado de una orden de producción pudiendo devolver:
+    Permite determinar el estado de una linea de venta pudiendo devolver:
     P:Pendiente - C:Cancelada - R:Reservada - O:Produciendo - D:Pendiente de entrega - E:Entregada
 */
 CREATE FUNCTION `f_dameEstadoLineaVenta`(pIdLineaVenta BIGINT) RETURNS CHAR(1)
