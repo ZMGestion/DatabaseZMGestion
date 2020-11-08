@@ -9,7 +9,7 @@ SALIR: BEGIN
             -Ubicacion de entrada o salida del remito (0:Todas)
             -Rango de fecha en el que fue entregado
             -Estado del remito (E:"En Creacion", C:"Creado", N:"Cancelado", F:"Entregado", T:Todos)
-            -Tipo de remito
+            -Tipo de remito (E:"Entrada", S:"Salida", X:"Transformación Entrada", Y:"Transformación Salida", T:Todos)
             -Usuario que lo creo(0:Todos)
     */
     DECLARE pIdUbicacionEntrada tinyint;
@@ -33,8 +33,8 @@ SALIR: BEGIN
 
     -- Parametros busqueda
     DECLARE pParametrosBusqueda JSON;
-    DECLARE pFechaEntregaDesde datetime;
-    DECLARE pFechaEntregaHasta datetime;
+    DECLARE pFechaEntregaDesde date;
+    DECLARE pFechaEntregaHasta date;
 
     -- Control de permisos
     DECLARE pUsuariosEjecuta JSON;
@@ -43,6 +43,13 @@ SALIR: BEGIN
     DECLARE pMensaje text;
     
     DECLARE pRespuesta JSON;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+    END;
 
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
@@ -68,7 +75,7 @@ SALIR: BEGIN
     SET pIdUbicacionEntrada = COALESCE(pIn->>"$.Remitos.IdUbicacion", 0);
     SET pIdUbicacionSalida = COALESCE(pIn->>"$.LineasProducto.IdUbicacion", 0);
 
-    IF CHAR_LENGTH(COALESCE(pIn ->>"$.ParametrosBusqueda.FechaInicio", "")) > 0 THEN
+    IF CHAR_LENGTH(COALESCE(pIn ->>"$.ParametrosBusqueda.FechaEntregaDesde", "")) > 0 THEN
         SET pFechaEntregaDesde = pIn ->> "$.ParametrosBusqueda.FechaEntregaDesde";
     END IF;
     IF CHAR_LENGTH(COALESCE(pIn ->>"$.ParametrosBusqueda.FechaEntregaHasta", "")) = 0 THEN
@@ -76,6 +83,7 @@ SALIR: BEGIN
     ELSE
         SET pFechaEntregaHasta = pIn ->> "$.ParametrosBusqueda.FechaEntregaHasta";
     END IF;
+
 
     SET pIdProducto = COALESCE(pIn->>"$.ProductosFinales.IdProducto", 0);
     SET pIdLustre = COALESCE(pIn->>"$.ProductosFinales.IdLustre", 0);
@@ -86,11 +94,12 @@ SALIR: BEGIN
 
     SET pOffset = (pPagina - 1) * pLongitudPagina;
 
-    DROP TEMPORARY TABLE tmp_resultadosSinPaginar;
-    DROP TEMPORARY TABLE tmp_resultadosPaginados;
+    DROP TEMPORARY TABLE IF EXISTS tmp_resultadosSinPaginar;
+    DROP TEMPORARY TABLE IF EXISTS  tmp_resultadosPaginados;
+    DROP TEMPORARY TABLE IF EXISTS tmpp_resultadoFinal;
 
     CREATE TEMPORARY TABLE tmp_resultadosSinPaginar
-    AS SELECT r.IdRemito
+    AS SELECT DISTINCT(r.IdRemito)
     FROM Remitos r
     LEFT JOIN LineasProducto lp ON r.IdRemito = lp.IdReferencia AND lp.Tipo = "R"
     LEFT JOIN ProductosFinales pf ON (lp.IdProductoFinal = pf.IdProductoFinal)
@@ -99,22 +108,23 @@ SALIR: BEGIN
         AND (r.Tipo = pTipo OR pTipo = "T")
         AND (r.Estado = pEstado OR pEstado = "T")
         AND (r.IdUsuario = pIdUsuario OR pIdUsuario = 0)
-        AND ((pFechaEntregaDesde IS NULL AND r.FechaEntrega <= pFechaEntregaHasta) OR (pFechaEntregaDesde IS NOT NULL AND r.FechaEntrega BETWEEN pFechaEntregaDesde AND pFechaEntregaHasta)) 
+        -- AND ((pFechaEntregaDesde IS NULL AND r.FechaEntrega <= pFechaEntregaHasta) OR (pFechaEntregaDesde IS NOT NULL AND r.FechaEntrega BETWEEN pFechaEntregaDesde AND pFechaEntregaHasta)) 
         AND (lp.IdUbicacion = pIdUbicacionSalida OR pIdUbicacionSalida = 0)
         AND (pf.IdProducto = pIdProducto OR pIdProducto = 0)
         AND (pf.IdTela = pIdTela OR pIdTela = 0)
         AND (pf.IdLustre = pIdLustre OR pIdLustre = 0)
     ORDER BY r.IdRemito DESC;
 
-    SET pCantidadTotal = (SELECT COUNT(IdRemito) FROM tmp_resultadosSinPaginar GROUP BY IdRemito);
+    SET pCantidadTotal = COALESCE((SELECT COUNT(DISTINCT IdRemito) FROM tmp_resultadosSinPaginar), 0);
 
     CREATE TEMPORARY TABLE tmp_resultadosPaginados
     AS SELECT IdRemito
     FROM tmp_resultadosSinPaginar
     LIMIT pOffset, pLongitudPagina;
 
-    CREATE TEMPORARY TABLE tmp_presupuestosPrecios 
-    AS SELECT  
+    CREATE TEMPORARY TABLE  tmpp_resultadoFinal
+    AS SELECT
+        tmpp.IdRemito,
         IF(COUNT(lp.IdLineaProducto) > 0, 
             JSON_ARRAYAGG(
                 JSON_OBJECT(
@@ -158,7 +168,7 @@ SALIR: BEGIN
     LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
     LEFT JOIN Telas te ON pf.IdTela = te.IdTela
     LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
-    GROUP BY r.IdRemito;
+    GROUP BY tmpp.IdRemito;
 
     SET SESSION GROUP_CONCAT_MAX_LEN=150000;
 
@@ -172,14 +182,13 @@ SALIR: BEGIN
             SELECT CAST(CONCAT("[", COALESCE(GROUP_CONCAT(JSON_OBJECT(
                 "Remitos",  JSON_OBJECT(
                     "IdRemito", r.IdRemito,
-                    "IdDomicilio", r.IdDomicilio,
                     "IdUbicacion", r.IdUbicacion,
                     "IdUsuario", r.IdUsuario,
                     "Tipo", r.Tipo,
                     "FechaEntrega", r.FechaEntrega,
                     "FechaAlta", r.FechaAlta,
                     "Observaciones", r.Observaciones,
-                    "Estado", r.Estado
+                    "Estado", f_calcularEstadoRemito(r.IdRemito)
                 ),
                 "Usuarios", JSON_OBJECT(
                     "Nombres", u.Nombres,
@@ -188,20 +197,21 @@ SALIR: BEGIN
                 "Ubicaciones", JSON_OBJECT(
                     "Ubicacion", ub.Ubicacion
                 ),
-                "LineasPresupuesto", tmpp.LineasRemito
-            )),""), "]") AS JSON)
-            FROM tmp_resultadosPaginados tmpp
+                "LineasRemito", tmpp.LineasRemito
+            )ORDER BY r.FechaAlta DESC),""), "]") AS JSON)
+            FROM tmpp_resultadoFinal tmpp
             INNER JOIN Remitos r ON r.IdRemito = tmpp.IdRemito
-            LEFT JOIN Domicilios d ON d.IdDomicilio = r.IdDomicilio
-            INNER JOIN Usuarios u ON tmpp.IdUsuario = u.IdUsuario
-            INNER JOIN Ubicaciones ub ON tmpp.IdUbicacion = ub.IdUbicacion
+            INNER JOIN Usuarios u ON r.IdUsuario = u.IdUsuario
+            LEFT JOIN Ubicaciones ub ON r.IdUbicacion = ub.IdUbicacion
+            ORDER BY r.FechaAlta DESC
         )    
     );
     SET SESSION GROUP_CONCAT_MAX_LEN=15000;
     
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
 
-    DROP TEMPORARY TABLE tmp_resultadosSinPaginar;
-    DROP TEMPORARY TABLE tmp_resultadosPaginados;
+    DROP TEMPORARY TABLE IF EXISTS tmp_resultadosSinPaginar;
+    DROP TEMPORARY TABLE IF EXISTS  tmp_resultadosPaginados;
+    DROP TEMPORARY TABLE IF EXISTS tmpp_resultadoFinal;
 END $$
 DELIMITER ;

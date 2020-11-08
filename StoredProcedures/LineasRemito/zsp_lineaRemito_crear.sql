@@ -28,7 +28,7 @@ SALIR: BEGIN
     END IF;
 
     START TRANSACTION;
-        CALL zsp_lineasRemito_crear_interno(pIn, pIdLineaRemito, pError);
+        CALL zsp_lineaRemito_crear_interno(pIn, pIdLineaRemito, pError);
         IF pError IS NOT NULL THEN
             SELECT f_generarRespuesta(pError, NULL) pOut;
             LEAVE SALIR;
@@ -45,7 +45,6 @@ SALIR: BEGIN
                         'IdReferencia', lp.IdReferencia,
                         'Tipo', lp.Tipo,
                         'PrecioUnitario', lp.PrecioUnitario,
-                        "_PrecioUnitarioActual",  f_calcularPrecioProductoFinal(lp.IdProductoFinal),
                         'Cantidad', lp.Cantidad,
                         'FechaAlta', lp.FechaAlta,
                         'FechaCancelacion', lp.FechaCancelacion,

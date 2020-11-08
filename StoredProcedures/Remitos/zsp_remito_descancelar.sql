@@ -1,6 +1,6 @@
 DROP PROCEDURE IF EXISTS zsp_remito_descancelar;
 DELIMITER $$
-CREATE PROCEDURE zsp_remito_cancelar(pIn JSON)
+CREATE PROCEDURE zsp_remito_descancelar(pIn JSON)
 SALIR: BEGIN
     /*
         Procedimiento que permite descancelar un remito. Controla que se encuentre cancelado.
@@ -12,7 +12,15 @@ SALIR: BEGIN
     DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
+
+    DECLARE pRespuesta JSON;
     
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+    END;
     
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
@@ -39,7 +47,6 @@ SALIR: BEGIN
 			SELECT JSON_OBJECT(
                 "Remitos",  JSON_OBJECT(
                     'IdRemito', IdRemito,
-                    'IdDomicilio', IdDomicilio,
                     'IdUbicacion', IdUbicacion,
                     'IdUsuario', IdUsuario,
                     'Tipo', Tipo,
@@ -50,7 +57,7 @@ SALIR: BEGIN
                 ) 
             )
 			FROM	Remitos
-			WHERE	IdRemito = pIdRemito;
+			WHERE	IdRemito = pIdRemito
         );
 	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;

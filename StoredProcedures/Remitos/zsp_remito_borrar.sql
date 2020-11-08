@@ -14,6 +14,12 @@ SALIR: BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
     
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+    END;
     
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
@@ -31,7 +37,7 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-    SET @pEstado = (SELECT Estado FROM Remitos WHERE IdRemito = pIdRemito)
+    SET @pEstado = (SELECT Estado FROM Remitos WHERE IdRemito = pIdRemito);
 
     IF (SELECT FechaEntrega FROM Remitos WHERE IdRemito = pIdRemito) IS NOT NULL OR @pEstado = 'B' THEN
         SELECT f_generarRespuesta("ERROR_BORRAR_REMITO", NULL) pOut;

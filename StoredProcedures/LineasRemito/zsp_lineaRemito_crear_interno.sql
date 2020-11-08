@@ -22,7 +22,7 @@ SALIR: BEGIN
     -- Extraigo atributos de la linea de remito
     SET pIdRemito = COALESCE(pIn ->> "$.LineasProducto.IdReferencia", 0);
     SET pCantidad = COALESCE(pIn ->> "$.LineasProducto.Cantidad", 0);
-    SET pIdUbicacion = COALESCE(pIn ->> "$.LineasProducto.IdUbicacion", 0);
+    SET pIdUbicacion = pIn ->> "$.LineasProducto.IdUbicacion";
 
     -- Extraigo atributos del producto final
     SET pIdProducto = COALESCE(pIn ->> "$.ProductosFinales.IdProducto", 0);
@@ -34,6 +34,10 @@ SALIR: BEGIN
     IF @pTipo IN ('S', 'Y') AND NOT EXISTS(SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
         SELECT f_generarRespuesta("ERROR_UBICACION_INVALIDA", NULL) pOut;
         LEAVE SALIR;
+    END IF;
+
+    IF @pTipo IN ('E', 'X') THEN
+        SET pIdUbicacion = NULL;
     END IF;
 
     IF pCantidad = 0 THEN
@@ -48,19 +52,29 @@ SALIR: BEGIN
     IF pIdLustre = 0 THEN
         SET pIdLustre = NULL;
     END IF;
-    -- Si no existe el producto final, lo creo.
+    -- Si no existe el producto final y el remito es de entrada lo creo. No puedo crear una linea de remito para un remito de salida con algo que no existe
     IF NOT EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IF(pIdTela IS NULL, IdTela IS NULL, IdTela = pIdTela) AND IF(pIdLustre IS NULL, IdLustre IS NULL, IdLustre = pIdLustre)) THEN
-        CALL zsp_productoFinal_crear_interno(pIn, pIdProductoFinal, pMensaje);
-        IF pMensaje IS NOT NULL THEN
-            SET pError = pMensaje;
-            SET pIdLineaRemito = 0;
+        IF @pTipo IN ('E', 'X') THEN
+            CALL zsp_productoFinal_crear_interno(pIn, pIdProductoFinal, pMensaje);
+            IF pMensaje IS NOT NULL THEN
+                SET pError = pMensaje;
+                SET pIdLineaRemito = 0;
+                LEAVE SALIR;
+            END IF;
+        ELSE
+            SELECT f_generarRespuesta("ERROR_PRODUCTOFINAL_NOEXISTE", NULL) pOut;
             LEAVE SALIR;
         END IF;
+    END IF;
+
+    IF @pTipo IN ('S', 'Y') AND pCantidad < f_calcularStockProducto(pIdProductoFinal, pIdUbicacion) THEN
+        SELECT f_generarRespuesta("ERROR_CANTIDAD_INVALIDA", NULL) pOut;
+        LEAVE SALIR;
     END IF;
     
     SELECT IdProductoFinal INTO pIdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IF(pIdTela IS NULL, IdTela IS NULL, IdTela = pIdTela) AND IF(pIdLustre IS NULL, IdLustre IS NULL, IdLustre = pIdLustre);
 
-    INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) VALUES(0, NULL, pIdProductoFinal, NULL, pIdRemito, 'R', NULL, pCantidad, NOW(), NULL, 'P');
+    INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) VALUES(0, NULL, pIdProductoFinal, pIdUbicacion, pIdRemito, 'R', NULL, pCantidad, NOW(), NULL, 'P');
 
     SET pIdLineaRemito = LAST_INSERT_ID();
     SET pError = NULL;

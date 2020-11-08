@@ -15,6 +15,14 @@ SALIR: BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
     
+    DECLARE pRespuesta JSON;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+    END;
     
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
@@ -46,7 +54,6 @@ SALIR: BEGIN
 			SELECT JSON_OBJECT(
                 "Remitos",  JSON_OBJECT(
                     'IdRemito', IdRemito,
-                    'IdDomicilio', IdDomicilio,
                     'IdUbicacion', IdUbicacion,
                     'IdUsuario', IdUsuario,
                     'Tipo', Tipo,
@@ -57,11 +64,10 @@ SALIR: BEGIN
                 ) 
             )
 			FROM	Remitos
-			WHERE	IdRemito = pIdRemito;
+			WHERE	IdRemito = pIdRemito
         );
 	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
-    
     COMMIT;
 END $$
 DELIMITER ;

@@ -91,7 +91,8 @@ SALIR:BEGIN
                                 'FechaAlta', pf.FechaAlta,
                                 'FechaBaja', pf.FechaBaja,
                                 'Estado', pf.Estado,
-                                '_PrecioTotal', (upp.Precio + COALESCE(pr.LongitudTela, 0) * upt.Precio)
+                                '_PrecioTotal', (upp.Precio + COALESCE(pr.LongitudTela, 0) * upt.Precio),
+                                '_Cantidad', f_calcularStockProducto(pf.IdProductoFinal, 0)
                             ),
                         "Productos",
                             JSON_OBJECT(

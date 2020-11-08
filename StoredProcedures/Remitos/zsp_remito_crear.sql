@@ -6,7 +6,6 @@ SALIR: BEGIN
         Procedimiento que permite dar de alta un nuevo remito. Se crea en estado 'En Creacion'.
         Devuelve el remito creado en 'respuesta' o el error en 'error'.
     */
-    DECLARE pIdDomicilio int;
     DECLARE pIdUbicacion tinyint;
     DECLARE pTipo char(1);
     DECLARE pObservaciones varchar(255);
@@ -18,6 +17,13 @@ SALIR: BEGIN
     DECLARE pMensaje text;
 
     DECLARE pRespuesta JSON;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+    END;
   
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
@@ -28,52 +34,44 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-    SET pIdDomicilio = COALESCE(pIn->>'$.Remitos.IdDomicilio', 0);
     SET pIdUbicacion = COALESCE(pIn->>'$.Remitos.IdUbicacion', 0);
-    SET pIdUsuario = COALESCE(pIn->>'$.Remitos.IdUsuario', 0);
     SET pTipo = COALESCE(pIn->>'$.Remitos.Tipo', '');
     SET pObservaciones = pIn->>'$.Domicilios.Observaciones';
 
-    IF pIdUbicacion = 0 THEN
-        SELECT f_generarRespuesta("ERROR_INGRESAR_UBICACION", NULL) pOut;
-        LEAVE SALIR;
-    END IF;
-
-    IF NOT EXISTS(SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
+    IF pTipo IN ('E', 'X') AND NOT EXISTS(SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_UBICACION", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
-    IF pIdDomicilio != 0  THEN
-        IF NOT EXISTS(SELECT IdDomicilio FROM Domicilios WHERE IdDomicilio = pIdDomicilio) THEN
-            SELECT f_generarRespuesta("ERROR_NOEXISTE_DOMICILIO", NULL) pOut;
-            LEAVE SALIR;
-        END IF;
-    END IF;
-
-    IF pTipo = '' OR NOT IN('E','S','X', 'Y') THEN
+    IF pTipo NOT IN('E','S','X', 'Y') THEN
         SELECT f_generarRespuesta("ERROR_INVALIDO_TIPO", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     START TRANSACTION;
-        INSERT INTO Remitos (IdRemito, IdDomicilio, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdDomicilio, pIdUbicacion, pIdUsuarioEjecuta, pTipo, NULL, NOW(), NULLIF(pObservaciones, ''), 'E');
+        INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, NULLIF(pIdUbicacion, 0), pIdUsuarioEjecuta, pTipo, NULL, NOW(), NULLIF(pObservaciones, ''), 'E');
 
         SET pRespuesta = (
 			SELECT JSON_OBJECT(
                 "Remitos",  JSON_OBJECT(
-                    'IdRemito', IdRemito,
-                    'IdDomicilio', IdDomicilio,
-                    'IdUbicacion', IdUbicacion,
-                    'IdUsuario', IdUsuario,
-                    'Tipo', Tipo,
-                    'FechaEntrega', FechaEntrega,
-                    'FechaAlta', FechaAlta,
-                    'Observaciones', Observaciones,
-                    'Estado', Estado
-                ) 
+                    'IdRemito', r.IdRemito,
+                    'IdUbicacion', r.IdUbicacion,
+                    'IdUsuario', r.IdUsuario,
+                    'Tipo', r.Tipo,
+                    'FechaEntrega', r.FechaEntrega,
+                    'FechaAlta', r.FechaAlta,
+                    'Observaciones', r.Observaciones,
+                    'Estado', r.Estado
+                ),
+                'Ubicaciones', IF(r.IdUbicacion IS NOT NULL,
+                 JSON_OBJECT(
+                    'IdUbicacion', u.IdUbicacion,
+                    'Ubicacion', u.Ubicacion
+                 ), 
+                 NULL)
             )
-			FROM	Remitos
+			FROM	Remitos r
+            LEFT JOIN Ubicaciones u ON u.IdUbicacion = r.IdUbicacion
 			WHERE	IdRemito = LAST_INSERT_ID()
         );
 	
