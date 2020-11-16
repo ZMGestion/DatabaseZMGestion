@@ -25,7 +25,7 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-    SET pIdTarea = COAESCE(pIn->>'$.Tareas.IdTarea', 0);
+    SET pIdTarea = COALESCE(pIn->>'$.Tareas.IdTarea', 0);
 
     IF NOT EXISTS (SELECT IdTarea FROM Tareas WHERE IdTarea = pIdTarea) THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_TAREA", NULL) pOut;
@@ -40,32 +40,48 @@ SALIR: BEGIN
     START TRANSACTION;
         UPDATE Tareas 
         SET 
-            FechaInicio = NOW(),
-            Estado = 'E'
+            FechaCancelacion = NOW(),
+            Estado = 'C'
         WHERE IdTarea = pIdTarea;
         
         SET pRespuesta = (
-			SELECT CAST(
-                JSON_OBJECT(
-                    "Tareas", JSON_OBJECT(
-                        'IdTarea', IdTarea,
-                        'IdLineaProducto', IdLineaProducto,
-                        'IdTareaSiguiente', IdTareaSiguiente,
-                        'IdUsuarioFabricante', IdUsuarioFabricante,
-                        'Tarea', Tarea,
-                        'FechaInicio', FechaInicio,
-                        'FechaPausa', FechaPausa,
-                        'FechaFinalizacion', FechaFinalizacion,
-                        'FechaRevision', FechaRevision,
-                        'FechaAlta', FechaAlta,
-                        'FechaCancelacion', FechaCancelacion,
-                        'Observaciones', Observaciones,
-                        'Estado', Estado
+            SELECT JSON_OBJECT(
+                "Tareas", JSON_OBJECT(
+                    'IdTarea', t.IdTarea,
+                    'IdLineaProducto', t.IdLineaProducto,
+                    'IdTareaSiguiente', t.IdTareaSiguiente,
+                    'IdUsuarioFabricante', t.IdUsuarioFabricante,
+                    'IdUsuarioRevisor', t.IdUsuarioRevisor,
+                    'Tarea', t.Tarea,
+                    'FechaInicio', t.FechaInicio,
+                    'FechaPausa', t.FechaPausa,
+                    'FechaFinalizacion', t.FechaFinalizacion,
+                    'FechaRevision', t.FechaRevision,
+                    'FechaAlta', t.FechaAlta,
+                    'FechaCancelacion', t.FechaCancelacion,
+                    'Observaciones', t.Observaciones,
+                    'Estado', t.Estado
+                ),
+                "UsuariosFabricante", JSON_OBJECT(
+                    'IdUsuario', uf.IdUsuario,
+                    'Nombres', uf.Nombres,
+                    'Apellidos', uf.Apellidos,
+                    'Estado', uf.Estado
+                ),
+                "UsuariosRevisor", IF(ur.IdUsuario IS NULL, 
+                    NULL, 
+                    JSON_OBJECT(
+                        'IdUsuario', ur.IdUsuario,
+                        'Nombres', ur.Nombres,
+                        'Apellidos', ur.Apellidos,
+                        'Estado', ur.Estado
                     )
                 )
-             AS JSON)
-			FROM Tareas
-			WHERE IdTarea = pIdTarea
+            )
+            FROM Tareas t
+            INNER JOIN Usuarios uf ON(uf.IdUsuario = t.IdUsuarioFabricante)
+            LEFT JOIN Usuarios ur ON(ur.IdUsuario = t.IdUsuarioRevisor)
+            WHERE IdTarea = pIdTarea
         );
 	
 		SELECT f_generarRespuesta(NULL, pRespuesta) pOut;

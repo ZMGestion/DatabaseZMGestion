@@ -13,8 +13,8 @@ BEGIN
 
     SET pEstado = COALESCE((SELECT Estado FROM LineasProducto WHERE Tipo = 'O' AND IdLineaProducto = pIdLineaOrdenProduccion), '');
 
-    IF pEstado = 'V' THEN
-        RETURN 'V';
+    IF pEstado IN('V','C') THEN
+        RETURN pEstado;
     END IF;
 
     IF pEstado = 'F' THEN

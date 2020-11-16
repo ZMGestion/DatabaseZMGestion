@@ -49,6 +49,29 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
+    SET @pIdLineaVentaPadre = (
+        SELECT IdLineaProductoPadre FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto AND Tipo = 'O'
+    );
+    IF COALESCE(@pIdLineaVentaPadre, 0) > 0 THEN
+        IF COALESCE((
+            SELECT Cantidad
+            FROM LineasProducto 
+            WHERE 
+                Tipo = 'V' 
+                AND IdLineaProducto = @pIdLineaVentaPadre
+                AND f_dameEstadoLineaVenta(IdLineaProducto) = 'P'
+        ), 0) < (
+            SELECT Cantidad 
+            FROM LineasProducto 
+            WHERE 
+                IdLineaProducto = pIdLineaProducto 
+                AND Tipo = 'O'
+        ) THEN
+            SELECT f_generarRespuesta("ERROR_REANUDAR_LINEA_ORDEN_PRODUCCION_VENTA", NULL) pOut;
+            LEAVE SALIR;
+        END IF;
+    END IF;
+
     START TRANSACTION;
         UPDATE LineasProducto 
         SET Estado = 'F'
