@@ -33,7 +33,7 @@ BEGIN
                 FROM LineasProducto lp 
                 INNER JOIN LineasProducto lpp ON lpp.IdLineaProductoPadre = lp.IdLineaProducto 
                 INNER JOIN Remitos r ON lpp.IdReferencia = r.IdRemito
-                WHERE lpp.Tipo = 'R' AND lp.Estado = 'P' AND r.FechaEntrega IS NOT NULL
+                WHERE lpp.Tipo = 'R' AND lp.Estado = 'P' AND r.FechaEntrega IS NOT NULL AND lp.IdReferencia = pIdVenta AND lp.Tipo = 'V'
             ) = 
             (
                 (
