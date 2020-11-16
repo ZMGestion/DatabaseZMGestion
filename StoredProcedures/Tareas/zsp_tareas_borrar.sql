@@ -24,7 +24,7 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-    SET pIdTarea = COAESCE(pIn->>'$.Tareas.IdTarea', 0);
+    SET pIdTarea = COALESCE(pIn->>'$.Tareas.IdTarea', 0);
 
     IF NOT EXISTS (SELECT IdTarea FROM Tareas WHERE IdTarea = pIdTarea) THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_TAREA", NULL) pOut;
@@ -36,38 +36,16 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
+    IF (SELECT IdTarea FROM Tareas WHERE IdTareaSiguiente = pIdTarea) THEN
+        SELECT f_generarRespuesta("ERROR_TAREA_BORRAR_TAREA_SIGUIENTE", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
     START TRANSACTION;
-        UPDATE Tareas 
-        SET 
-            FechaPausa = NOW(),
-            Estado = 'S'
+        DELETE FROM Tareas 
         WHERE IdTarea = pIdTarea;
-        
-        SET pRespuesta = (
-			SELECT CAST(
-                JSON_OBJECT(
-                    "Tareas", JSON_OBJECT(
-                        'IdTarea', IdTarea,
-                        'IdLineaProducto', IdLineaProducto,
-                        'IdTareaSiguiente', IdTareaSiguiente,
-                        'IdUsuarioFabricante', IdUsuarioFabricante,
-                        'Tarea', Tarea,
-                        'FechaInicio', FechaInicio,
-                        'FechaPausa', FechaPausa,
-                        'FechaFinalizacion', FechaFinalizacion,
-                        'FechaRevision', FechaRevision,
-                        'FechaAlta', FechaAlta,
-                        'FechaCancelacion', FechaCancelacion,
-                        'Observaciones', Observaciones,
-                        'Estado', Estado
-                    )
-                )
-             AS JSON)
-			FROM Tareas
-			WHERE IdTarea = pIdTarea
-        );
-	
-		SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
+
+        SELECT f_generarRespuesta(NULL, NULL) pOut;
     COMMIT; 
 END $$
 DELIMITER ;

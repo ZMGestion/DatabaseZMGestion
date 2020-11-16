@@ -45,14 +45,14 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF COALESCE((SELECT Estado FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto AND Tipo = 'O'),'') != 'C' THEN
-        SELECT f_generarRespuesta("ERROR_REANUDAR_LINEA_ORDEN_PRODUCCION", NULL) pOut;
+    IF COALESCE((SELECT Estado FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto AND Tipo = 'O'),'') != 'F' THEN
+        SELECT f_generarRespuesta("ERROR_CANCELAR_LINEA_ORDEN_PRODUCCION", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
     START TRANSACTION;
         UPDATE LineasProducto 
-        SET Estado = 'F'
+        SET Estado = 'C'
         WHERE 
             IdLineaProducto = pIdLineaProducto
             AND Tipo = 'O';

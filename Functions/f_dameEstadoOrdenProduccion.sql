@@ -11,6 +11,7 @@ BEGIN
     DECLARE pCantidadTotal INT DEFAULT 0;
     DECLARE pCantidadCancelada INT DEFAULT 0;
     DECLARE pCantidadVerificada INT DEFAULT 0;
+    DECLARE pCantidadTareas INT DEFAULT 0;
 
     SET pEstado = (SELECT Estado FROM OrdenesProduccion WHERE IdOrdenProduccion = pIdOrdenProduccion);
     
@@ -22,27 +23,14 @@ BEGIN
         Pendiente: Si todas las lineas de orden de produccion asociadas que no se encuentren en estado "Cancelada" o "Verificadas" 
         se encuentran en estado "Pendiente de produccion".
     */
-    IF NOT EXISTS(
-        SELECT lp.IdLineaProducto
-        FROM OrdenesProduccion op
-        INNER JOIN LineasProducto lp ON (lp.Tipo = 'O' AND lp.IdReferencia = op.IdOrdenProduccion)
-        LEFT JOIN Tareas t ON t.IdLineaProducto = lp.IdLineaProducto
-        WHERE 
-            IdOrdenProduccion = pIdOrdenProduccion
-            AND op.Estado = 'P'
-            AND lp.Estado = 'F'
-            AND t.Estado != 'P'
-    ) THEN
-        RETURN 'P';
-    END IF;
-
     SELECT 
         COUNT(*), 
         COUNT(IF(lop.Estado = 'C', lop.Estado, NULL)), 
         COUNT(IF(lop.Estado = 'P', lop.Estado, NULL)) 
         INTO pCantidadTotal, pCantidadCancelada, pCantidadVerificada
     FROM OrdenesProduccion op
-    INNER JOIN LineasProducto lp ON (lp.Tipo = 'O' AND lp.IdReferencia = op.IdOrdenProduccion);
+    INNER JOIN LineasProducto lop ON (lop.Tipo = 'O' AND lop.IdReferencia = op.IdOrdenProduccion)
+    WHERE op.IdOrdenProduccion = pIdOrdenProduccion;
 
     IF pCantidadTotal = pCantidadCancelada THEN
         RETURN 'C';
@@ -50,6 +38,20 @@ BEGIN
 
     IF pCantidadTotal = pCantidadCancelada + pCantidadVerificada THEN
         RETURN 'V';
+    END IF;
+
+    IF NOT EXISTS(
+        SELECT lp.IdLineaProducto, COUNT(t.IdTarea) CantidadTareas
+        FROM OrdenesProduccion op
+        INNER JOIN LineasProducto lp ON (lp.Tipo = 'O' AND lp.IdReferencia = op.IdOrdenProduccion)
+        LEFT JOIN Tareas t ON t.IdLineaProducto = lp.IdLineaProducto
+        WHERE 
+            IdOrdenProduccion = pIdOrdenProduccion
+            AND (lp.Estado = 'F' AND t.Estado != 'P')
+        GROUP BY lp.IdLineaProducto
+        HAVING CantidadTareas > 0
+    ) THEN
+        RETURN 'P';
     END IF;
 
     RETURN 'R';

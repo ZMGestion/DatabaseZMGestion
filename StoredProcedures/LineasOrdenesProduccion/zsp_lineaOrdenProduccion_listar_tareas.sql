@@ -4,9 +4,9 @@ DELIMITER $$
 CREATE PROCEDURE `zsp_lineaOrdenProduccion_listar_tareas`(pIn JSON)
 SALIR:BEGIN
     /*
-        Procedimiento que permite listar las lineas de presupuesto de un presupuesto. 
-        Controla que exista el presupuesto.
-        Devuelve el presupuesto con sus lineas de presupuesto en 'respuesta' o el error en 'error'.
+        Procedimiento que permite listar las tareas de una linea de orden de producción. 
+        Controla que exista la linea de orden de producción.
+        Devuelve las tareas en 'respuesta' o el error en 'error'.
     */
 
     -- Control de permisos
@@ -39,9 +39,9 @@ SALIR:BEGIN
     END IF;
 
     -- Extraigo atributos del Presupuesto
-    SET pIdLineaOrdenProduccion = pIn ->> "$.LineasOrdenProduccion.IdLineaProducto";
+    SET pIdLineaOrdenProduccion = pIn ->> "$.LineasProducto.IdLineaProducto";
 
-    IF pIdPresupuesto IS NULL OR NOT EXISTS (SELECT IdPresupuesto FROM Presupuestos WHERE IdPresupuesto = pIdPresupuesto) THEN
+    IF pIdLineaOrdenProduccion IS NULL OR NOT EXISTS (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaOrdenProduccion AND Tipo = 'O') THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_LINEA_ORDEN_PRODUCCION", NULL) pOut;
         LEAVE SALIR;
     END IF;
@@ -49,42 +49,43 @@ SALIR:BEGIN
     SET pRespuesta = (
         SELECT JSON_ARRAYAGG(
                 JSON_OBJECT(
-                    "LineasProducto", JSON_OBJECT(
-                        "IdLineaProducto", lp.IdLineaProducto,
-                        "IdProductoFinal", lp.IdProductoFinal,
-                        "Cantidad", lp.Cantidad,
-                        "PrecioUnitario", lp.PrecioUnitario
-                        ),
-                    "ProductosFinales", JSON_OBJECT(
-                        "IdProductoFinal", pf.IdProductoFinal,
-                        "IdProducto", pf.IdProducto,
-                        "IdTela", pf.IdTela,
-                        "IdLustre", pf.IdLustre,
-                        "FechaAlta", pf.FechaAlta
+                    "Tareas", JSON_OBJECT(
+                        'IdTarea', t.IdTarea,
+                        'IdLineaProducto', t.IdLineaProducto,
+                        'IdTareaSiguiente', t.IdTareaSiguiente,
+                        'IdUsuarioFabricante', t.IdUsuarioFabricante,
+                        'IdUsuarioRevisor', t.IdUsuarioRevisor,
+                        'Tarea', t.Tarea,
+                        'FechaInicio', t.FechaInicio,
+                        'FechaPausa', t.FechaPausa,
+                        'FechaFinalizacion', t.FechaFinalizacion,
+                        'FechaRevision', t.FechaRevision,
+                        'FechaAlta', t.FechaAlta,
+                        'FechaCancelacion', t.FechaCancelacion,
+                        'Observaciones', t.Observaciones,
+                        'Estado', t.Estado
                     ),
-                    "Productos",JSON_OBJECT(
-                        "IdProducto", pr.IdProducto,
-                        "Producto", pr.Producto
-                    ),
-                    "Telas",IF (te.IdTela  IS NOT NULL,
-                    JSON_OBJECT(
-                        "IdTela", te.IdTela,
-                        "Tela", te.Tela
-                    ),NULL),
-                    "Lustres",IF (lu.IdLustre  IS NOT NULL,
-                    JSON_OBJECT(
-                        "IdLustre", lu.IdLustre,
-                        "Lustre", lu.Lustre
-                    ), NULL)
+                    "UsuariosFabricante", JSON_OBJECT(
+						'IdUsuario', uf.IdUsuario,
+                        'Nombres', uf.Nombres,
+                        'Apellidos', uf.Apellidos,
+                        'Estado', uf.Estado
+					),
+                    "UsuariosRevisor", IF(ur.IdUsuario IS NULL, 
+                        NULL, 
+                        JSON_OBJECT(
+                            'IdUsuario', ur.IdUsuario,
+                            'Nombres', ur.Nombres,
+                            'Apellidos', ur.Apellidos,
+                            'Estado', ur.Estado
+                        )
+                    )
                 )
             )
-        FROM Presupuestos p
-        LEFT JOIN LineasProducto lp ON p.IdPresupuesto = lp.IdReferencia AND lp.Tipo = 'P'
-        LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
-        LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
-        LEFT JOIN Telas te ON pf.IdTela = te.IdTela
-        LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
-        WHERE	p.IdPresupuesto = pIdPresupuesto
+        FROM Tareas t
+        INNER JOIN Usuarios uf ON(uf.IdUsuario = t.IdUsuarioFabricante)
+        LEFT JOIN Usuarios ur ON(ur.IdUsuario = t.IdUsuarioRevisor)
+        WHERE IdLineaProducto = pIdLineaOrdenProduccion
     );
 	
     SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
