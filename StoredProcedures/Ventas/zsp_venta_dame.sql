@@ -70,7 +70,7 @@ SALIR: BEGIN
                 'FechaAlta', v.FechaAlta,
                 'Observaciones', v.Observaciones,
                 'Estado', f_calcularEstadoVenta(v.IdVenta),
-                '_PrecioTotal', SUM(lp.Cantidad * lp.PrecioUnitario),
+                '_PrecioTotal', SUM(IF(lp.Estado != 'C', lp.Cantidad * lp.PrecioUnitario, 0)),
                 '_Facturado', COALESCE(@pFacturado, 0)
             ),
             "Clientes", JSON_OBJECT(
