@@ -134,7 +134,8 @@ SALIR: BEGIN
     AND ((pFechaInicio IS NULL AND v.FechaAlta <= pFechaFin) OR (pFechaInicio IS NOT NULL AND v.FechaAlta BETWEEN pFechaInicio AND pFechaFin))
     AND (pf.IdProducto = pIdProducto OR pIdProducto = 0)
     AND (pf.IdTela = pIdTela OR pIdTela = 0)
-    AND (pf.IdLustre = pIdLustre OR pIdLustre = 0);
+    AND (pf.IdLustre = pIdLustre OR pIdLustre = 0)
+    ORDER BY v.IdVenta DESC;
     
     -- Para devolver CantidadTotal en Paginaciones
     SET pCantidadTotal = (SELECT COUNT(DISTINCT IdVenta) FROM tmp_Ventas);
@@ -143,6 +144,7 @@ SALIR: BEGIN
     CREATE TEMPORARY TABLE tmp_VentasPaginadas AS
     SELECT DISTINCT IdVenta, IdCliente, IdDomicilio,IdUbicacion, IdUsuario, FechaAlta, Observaciones, Estado
     FROM tmp_Ventas
+    ORDER BY IdVenta DESC
     LIMIT pOffset, pLongitudPagina;
 
 
@@ -150,7 +152,7 @@ SALIR: BEGIN
     CREATE TEMPORARY TABLE tmp_ventasPrecios AS
     SELECT  
 		tmpv.*, 
-        SUM(lp.Cantidad * lp.PrecioUnitario) AS PrecioTotal, 
+        SUM(IF(lp.Estado != 'C', lp.Cantidad * lp.PrecioUnitario, 0)) AS PrecioTotal, 
         IF(COUNT(lp.IdLineaProducto) > 0, JSON_ARRAYAGG(
 			JSON_OBJECT(
                 "LineasProducto",  
@@ -193,39 +195,7 @@ SALIR: BEGIN
     LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
     GROUP BY tmpv.IdVenta, tmpv.IdCliente, tmpv.IdDomicilio, tmpv.IdUbicacion, tmpv.IdUsuario, tmpv.FechaAlta, tmpv.Observaciones, tmpv.Estado;
 
-    SET pResultado = (SELECT 
-        JSON_ARRAYAGG(
-            JSON_OBJECT(
-                "Ventas",  JSON_OBJECT(
-                    'IdVenta', tmpv.IdVenta,
-                    'IdCliente', tmpv.IdCliente,
-                    'IdUbicacion', tmpv.IdUbicacion,
-                    'IdUsuario', tmpv.IdUsuario,
-                    'FechaAlta', tmpv.FechaAlta,
-                    'Observaciones', tmpv.Observaciones,
-                    'Estado', f_calcularEstadoVenta(tmpv.IdVenta),
-                    '_PrecioTotal', tmpv.PrecioTotal
-                ),
-                "Clientes", JSON_OBJECT(
-                    'Nombres', c.Nombres,
-                    'Apellidos', c.Apellidos,
-                    'RazonSocial', c.RazonSocial
-                ),
-                "Usuarios", JSON_OBJECT(
-                    "Nombres", u.Nombres,
-                    "Apellidos", u.Apellidos
-                ),
-                "Ubicaciones", JSON_OBJECT(
-                    "Ubicacion", ub.Ubicacion
-                ),
-                "LineasVenta", tmpv.LineasVenta
-            )
-        )
-        FROM tmp_ventasPrecios tmpv
-        INNER JOIN Clientes c ON tmpv.IdCliente = c.IdCliente
-        INNER JOIN Usuarios u ON tmpv.IdUsuario = u.IdUsuario
-        INNER JOIN Ubicaciones ub ON tmpv.IdUbicacion = ub.IdUbicacion
-    );
+    SET SESSION GROUP_CONCAT_MAX_LEN=150000;
 
     SET pRespuesta = JSON_OBJECT(
             "Paginaciones", JSON_OBJECT(
@@ -233,8 +203,39 @@ SALIR: BEGIN
                 "LongitudPagina", pLongitudPagina,
                 "CantidadTotal", pCantidadTotal
             ),
-            "resultado", pResultado
+            "resultado", (
+                SELECT CAST(CONCAT('[', COALESCE(GROUP_CONCAT(JSON_OBJECT(
+                    "Ventas",  JSON_OBJECT(
+                        'IdVenta', tmpv.IdVenta,
+                        'IdCliente', tmpv.IdCliente,
+                        'IdUbicacion', tmpv.IdUbicacion,
+                        'IdUsuario', tmpv.IdUsuario,
+                        'FechaAlta', tmpv.FechaAlta,
+                        'Observaciones', tmpv.Observaciones,
+                        'Estado', f_calcularEstadoVenta(tmpv.IdVenta),
+                        '_PrecioTotal', tmpv.PrecioTotal
+                    ),
+                    "Clientes", JSON_OBJECT(
+                        'Nombres', c.Nombres,
+                        'Apellidos', c.Apellidos,
+                        'RazonSocial', c.RazonSocial
+                    ),
+                    "Usuarios", JSON_OBJECT(
+                        "Nombres", u.Nombres,
+                        "Apellidos", u.Apellidos
+                    ),
+                    "Ubicaciones", JSON_OBJECT(
+                        "Ubicacion", ub.Ubicacion
+                    ),
+                    "LineasVenta", tmpv.LineasVenta
+                ) ORDER BY tmpv.FechaAlta DESC),''), ']') AS JSON)
+                FROM tmp_ventasPrecios tmpv
+                INNER JOIN Clientes c ON tmpv.IdCliente = c.IdCliente
+                INNER JOIN Usuarios u ON tmpv.IdUsuario = u.IdUsuario
+                INNER JOIN Ubicaciones ub ON tmpv.IdUbicacion = ub.IdUbicacion
+            )
     );
+    SET SESSION GROUP_CONCAT_MAX_LEN=15000;
         
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
     

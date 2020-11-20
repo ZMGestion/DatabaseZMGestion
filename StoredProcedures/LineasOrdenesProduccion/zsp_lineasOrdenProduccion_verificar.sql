@@ -1,0 +1,169 @@
+DROP PROCEDURE IF EXISTS zsp_lineasOrdenProduccion_verificar;
+DELIMITER $$
+CREATE PROCEDURE zsp_lineasOrdenProduccion_verificar(pIn JSON)
+SALIR: BEGIN
+    /*
+        Procedimiento que permite verificar una línea de órden de producción.
+        Devuelve la línea de órden de producción en 'respuesta' o el error en 'error'
+    */
+
+    DECLARE pLineasOrdenProduccion JSON;
+    DECLARE pLineaOrdenProduccion JSON;
+    DECLARE pIdOrdenProduccion INT;
+    DECLARE pIdLineaOrdenProduccion bigint;
+    DECLARE pIndice tinyint DEFAULT 0;
+    DECLARE pIdRemitoTransformacion BIGINT;
+    DECLARE pIdRemito BIGINT;
+    DECLARE pIdUbicacion TINYINT;
+
+    -- Para lineas remito
+    DECLARE pIdProductoFinal INT;
+    DECLARE pCantidad TINYINT;
+
+    DECLARE pRespuesta JSON;
+
+    -- Control de permisos
+    DECLARE pUsuariosEjecuta JSON;
+    DECLARE pIdUsuarioEjecuta smallint;
+    DECLARE pToken varchar(256);
+    DECLARE pMensaje text;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        SHOW ERRORS;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
+        ROLLBACK;
+    END;
+    
+    
+    SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
+    SET pToken = pUsuariosEjecuta ->> "$.Token";
+    
+    CALL zsp_usuario_tiene_permiso(pToken, 'zsp_lineasOrdenProduccion_verificar', pIdUsuarioEjecuta, pMensaje);
+    IF pMensaje != 'OK' THEN
+        SELECT f_generarRespuesta(pMensaje, NULL) pOut;
+        LEAVE SALIR;
+    END IF; 
+    
+    SET pLineasOrdenProduccion = COALESCE(pIn->>'$.LineasOrdenProduccion', JSON_ARRAY());
+    SET pIdUbicacion = COALESCE(pIn ->> "$.Ubicaciones.IdUbicacion", 0); 
+
+    IF JSON_LENGTH(pLineasOrdenProduccion) = 0 THEN
+        SELECT f_generarRespuesta("ERROR_SIN_LINEASORDENPRODUCCION", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+
+    IF NOT EXISTS(SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
+        SELECT f_generarRespuesta("ERROR_NOEXISTE_UBICACION", NULL) pOut;
+        LEAVE SALIR;
+    END IF;
+    
+    START TRANSACTION;
+        WHILE pIndice < JSON_LENGTH(pLineasOrdenProduccion) DO
+            SET pLineaOrdenProduccion = JSON_EXTRACT(pLineasOrdenProduccion, CONCAT("$[", pIndice, "]"));
+            SET pIdLineaOrdenProduccion = COALESCE(pLineaOrdenProduccion->>'$.IdLineaProducto', 0);
+
+            IF NOT EXISTS(SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaOrdenProduccion AND Tipo = 'O') THEN
+                SELECT f_generarRespuesta("ERROR_NOEXISTE_LINEAORDENPRODUCCION", NULL) pOut;
+                LEAVE SALIR;
+            END IF;
+
+            IF pIndice = 0 THEN
+                SET pIdOrdenProduccion = (SELECT COALESCE(IdReferencia, 0) FROM LineasProducto WHERE IdLineaProducto = pIdLineaOrdenProduccion AND Tipo = 'O');
+            END IF;
+
+            IF NOT EXISTS(SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaOrdenProduccion AND IdReferencia = pIdOrdenProduccion AND Tipo = 'O') THEN
+                SELECT f_generarRespuesta("ERROR_DIFERENTE_ORDEN_LINEAORDENPRODUCCION", NULL) pOut;
+                LEAVE SALIR;
+            END IF;
+
+            IF EXISTS(SELECT IdTarea FROM Tareas WHERE IdLineaProducto = pIdLineaOrdenProduccion AND Estado != 'V') THEN
+                SELECT f_generarRespuesta("ERROR_NOVERIFICADAS_TAREAS", NULL) pOut;
+                LEAVE SALIR;
+            END IF;
+
+            SELECT IdProductoFinal, Cantidad INTO pIdProductoFinal, pCantidad FROM LineasProducto WHERE IdLineaProducto = pIdLineaOrdenProduccion;
+
+            IF EXISTS(SELECT lr.IdLineaProducto FROM LineasProducto lo INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre) THEN
+                -- El producto final está siendo transformado
+                IF pIdRemitoTransformacion IS NULL THEN
+                    INSERT INTO Remito (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'Y', NULL, NOW(), 'Remito de transformación salida por órden de producción', 'E');
+                    SET pIdRemitoTransformacion = LAST_INSERT_ID();
+                    
+                END IF;
+                INSERT INTO LineasProducto(IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, NULL, pIdRemitoTransformacion, 'R', NULL, pCantidad, NOW(), NULL, 'P');
+            ELSE
+                IF pIdRemito IS NULL THEN
+                    INSERT INTO Remito (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'E', NULL, NOW(), 'Remito de entrada por órden de producción', 'E');
+                    SET pIdRemito = LAST_INSERT_ID();            
+                END IF;
+                    INSERT INTO LineasProducto(IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, NULL, pIdRemito, 'R', NULL, pCantidad, NOW(), NULL, 'P');
+            END IF;
+
+            SET pIndice = pIndice + 1;
+        END WHILE;
+
+        SET pRespuesta = (
+            SELECT CAST( JSON_OBJECT(
+                "OrdenesProduccion",  JSON_OBJECT(
+                    'IdOrdenProduccion', op.IdOrdenProduccion,
+                    'IdUsuario', op.IdUsuario,
+                    'FechaAlta', op.FechaAlta,
+                    'Observaciones', op.Observaciones,
+                    'Estado', f_dameEstadoOrdenProduccion(op.IdOrdenProduccion)
+                ),
+                "Usuarios", JSON_OBJECT(
+                    "Nombres", u.Nombres,
+                    "Apellidos", u.Apellidos
+                ),
+                "LineasOrdenProduccion", IF(COUNT(lp.IdLineaProducto) > 0, JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        "LineasProducto", JSON_OBJECT(
+                            "IdLineaProducto", lp.IdLineaProducto,
+                            "IdProductoFinal", lp.IdProductoFinal,
+                            "IdLineaProductoPadre", lp.IdLineaProductoPadre,
+                            "Cantidad", lp.Cantidad,
+                            "PrecioUnitario", lp.PrecioUnitario,
+                            "Estado", f_dameEstadoLineaOrdenProduccion(lp.IdLineaProducto),
+                            "_IdRemito", r.IdRemito
+                        ),
+                        "ProductosFinales", JSON_OBJECT(
+                            "IdProductoFinal", pf.IdProductoFinal,
+                            "IdProducto", pf.IdProducto,
+                            "IdTela", pf.IdTela,
+                            "IdLustre", pf.IdLustre,
+                            "FechaAlta", pf.FechaAlta
+                        ),
+                        "Productos",JSON_OBJECT(
+                            "IdProducto", pr.IdProducto,
+                            "Producto", pr.Producto
+                        ),
+                        "Telas",IF (te.IdTela  IS NOT NULL,
+                        JSON_OBJECT(
+                            "IdTela", te.IdTela,
+                            "Tela", te.Tela
+                        ),NULL),
+                        "Lustres",IF (lu.IdLustre  IS NOT NULL,
+                        JSON_OBJECT(
+                            "IdLustre", lu.IdLustre,
+                            "Lustre", lu.Lustre
+                        ), NULL)
+                    )
+                ), JSON_ARRAY())
+            ) AS JSON)
+            FROM OrdenesProduccion op
+            INNER JOIN Usuarios u ON u.IdUsuario = op.IdUsuario
+            LEFT JOIN LineasProducto lp ON op.IdOrdenProduccion = lp.IdReferencia AND lp.Tipo = 'O'
+            LEFT JOIN LineasProducto lr ON lp.IdLineaProducto = lr.IdLineaProductoPadre
+            LEFT JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
+            LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
+            LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
+            LEFT JOIN Telas te ON pf.IdTela = te.IdTela
+            LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
+            WHERE IdOrdenProduccion = pIdOrdenProduccion
+        );
+	
+		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
+    COMMIT;
+END $$
+DELIMITER ;

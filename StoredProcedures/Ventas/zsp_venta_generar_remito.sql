@@ -86,12 +86,6 @@ SALIR: BEGIN
                 SELECT f_generarRespuesta("ERROR_LINEAVENTA_NOEXISTE", NULL) pOut;
                 LEAVE SALIR;
             END IF;
-            
-            -- En caso que exista una linea de remito que sea hija de la linea de venta
-            IF EXISTS(SELECT lp.IdLineaProducto FROM LineasProducto lp INNER JOIN LineasProducto lpp ON lp.IdLineaProducto = lpp.IdLineaProductoPadre WHERE lp.IdLineaProducto = pIdLineaVenta AND lpp.Tipo = 'R') THEN
-                SELECT f_generarRespuesta("ERROR_REMITO_LINEAPRODUCTO_EXISTE", NULL) pOut;
-                LEAVE SALIR;
-            END IF;
 
             IF NOT EXISTS(SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
                 SELECT f_generarRespuesta("ERROR_UBICACION_NOEXISTE", NULL) pOut;
@@ -105,7 +99,12 @@ SALIR: BEGIN
 
             SELECT IdProductoFinal, Cantidad INTO pIdProductoFinal, pCantidad FROM LineasProducto WHERE IdLineaProducto = pIdLineaVenta;
 
-            IF pCantidadSolicitada > pCantidad - (SELECT SUM(COALESCE(lpp.Cantidad, 0)) FROM LineasProducto lp LEFT JOIN LineasProducto lpp ON lp.IdLineaProducto = lpp.IdLineaProductoPadre WHERE lpp.Tipo = 'R' AND lp.IdLineaProducto = pIdLineaVenta) THEN
+            IF f_dameEstadoLineaVenta(pIdLineaVenta) != 'P' THEN
+                SELECT f_generarRespuesta("ERROR_LINEAVENTA_ESTADO_REMITO", NULL) pOut;
+                LEAVE SALIR;
+            END IF;
+
+            IF pCantidadSolicitada > pCantidad THEN
                 SELECT f_generarRespuesta("ERROR_CANTIDAD_INVALIDA_LINEASVENTA", NULL) pOut;
                 LEAVE SALIR;
             END IF;
@@ -126,7 +125,22 @@ SALIR: BEGIN
                 LEAVE SALIR;
             END IF;
 
-            INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) VALUES(0, pIdLineaVenta, pIdProductoFinal, pIdUbicacion, pIdRemito, 'R', NULL, pCantidad, NOW(), NULL, 'P');
+            IF pCantidadSolicitada < pCantidad THEN
+                -- Debemos partir la linea de venta.
+                UPDATE LineasProducto
+                SET Cantidad = pCantidadSolicitada
+                WHERE IdLineaProducto = pIdLineaVenta;
+
+                INSERT INTO LineasProducto SELECT 0, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado FROM LineasProducto WHERE IdLineaProducto = pIdLineaVenta; 
+
+                UPDATE LineasProducto
+                SET Cantidad = pCantidad - pCantidadSolicitada
+                WHERE IdLineaProducto = LAST_INSERT_ID();
+
+            END IF;
+
+            INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) VALUES(0, pIdLineaVenta, pIdProductoFinal, pIdUbicacion, pIdRemito, 'R', NULL, pCantidadSolicitada, NOW(), NULL, 'P');
+            
             SET pIndice = pIndice + 1;
         END WHILE;
 

@@ -106,7 +106,7 @@ SALIR: BEGIN
     WHERE
         (r.IdUbicacion = pIdUbicacionEntrada OR pIdUbicacionEntrada = 0)
         AND (r.Tipo = pTipo OR pTipo = "T")
-        AND (r.Estado = pEstado OR pEstado = "T")
+        AND (f_calcularEstadoRemito(r.IdRemito) = pEstado OR pEstado = "T")
         AND (r.IdUsuario = pIdUsuario OR pIdUsuario = 0)
         -- AND ((pFechaEntregaDesde IS NULL AND r.FechaEntrega <= pFechaEntregaHasta) OR (pFechaEntregaDesde IS NOT NULL AND r.FechaEntrega BETWEEN pFechaEntregaDesde AND pFechaEntregaHasta)) 
         AND (lp.IdUbicacion = pIdUbicacionSalida OR pIdUbicacionSalida = 0)
