@@ -51,7 +51,7 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF NOT EXISTS (SELECT IdCliente FROM Clientes c INNER JOIN Ventas v ON v.IdCliente = c.IdCliente WHERE c.IdCliente = pIdCliente AND v.IdVenta = pIdVenta) THEN
+    IF NOT EXISTS (SELECT c.IdCliente FROM Clientes c INNER JOIN Ventas v ON v.IdCliente = c.IdCliente WHERE c.IdCliente = pIdCliente AND v.IdVenta = pIdVenta) THEN
         SELECT f_generarRespuesta("ERROR_NOEXISTE_CLIENTE", NULL) pOut;
         LEAVE SALIR;
     END IF;

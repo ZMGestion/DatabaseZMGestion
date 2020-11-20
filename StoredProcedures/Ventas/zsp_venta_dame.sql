@@ -59,6 +59,12 @@ SALIR: BEGIN
         WHERE IdVenta = pIdVenta AND Estado = 'A' AND Tipo IN ('A', 'B', 'M', 'N')
     );
 
+    SET @pPagado = (
+        SELECT SUM(Monto) 
+        FROM Comprobantes 
+        WHERE IdVenta = pIdVenta AND Estado = 'A' AND Tipo = 'R'
+    );
+
     SET pRespuesta = (
         SELECT JSON_OBJECT(
             "Ventas",  JSON_OBJECT(
@@ -71,7 +77,8 @@ SALIR: BEGIN
                 'Observaciones', v.Observaciones,
                 'Estado', f_calcularEstadoVenta(v.IdVenta),
                 '_PrecioTotal', SUM(IF(lp.Estado != 'C', lp.Cantidad * lp.PrecioUnitario, 0)),
-                '_Facturado', COALESCE(@pFacturado, 0)
+                '_Facturado', COALESCE(@pFacturado, 0),
+                '_Pagado', COALESCE(@pPagado, 0)
             ),
             "Clientes", JSON_OBJECT(
                 'Nombres', c.Nombres,
@@ -95,7 +102,8 @@ SALIR: BEGIN
                         "IdProductoFinal", lp.IdProductoFinal,
                         "Cantidad", lp.Cantidad,
                         "PrecioUnitario", lp.PrecioUnitario,
-                        "Estado", f_dameEstadoLineaVenta(lp.IdLineaProducto)
+                        "Estado", f_dameEstadoLineaVenta(lp.IdLineaProducto),
+                        "_IdRemito", r.IdRemito
                     ),
                     "ProductosFinales", JSON_OBJECT(
                         "IdProductoFinal", pf.IdProductoFinal,
@@ -128,6 +136,8 @@ SALIR: BEGIN
         LEFT JOIN Domicilios d ON d.IdDomicilio = v.IdDomicilio
         INNER JOIN Ubicaciones ub ON ub.IdUbicacion = v.IdUbicacion
         LEFT JOIN LineasProducto lp ON v.IdVenta = lp.IdReferencia AND lp.Tipo = 'V'
+        LEFT JOIN LineasProducto lr ON lp.IdLineaProducto = lr.IdLineaProductoPadre
+        LEFT JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
         LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
         LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
         LEFT JOIN Telas te ON pf.IdTela = te.IdTela
