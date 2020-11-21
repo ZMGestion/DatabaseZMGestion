@@ -9,6 +9,7 @@ SALIR: BEGIN
     -- Control de permisos
     DECLARE pIdUsuarioEjecuta smallint;
     DECLARE pToken varchar(256);
+    DECLARE pIdRemito BIGINT;
     DECLARE pMensaje text;
 
     DECLARE pRespuesta JSON;
@@ -68,6 +69,20 @@ SALIR: BEGIN
         UPDATE OrdenesProduccion
         SET Estado = 'C'
         WHERE IdOrdenProduccion = pIdOrdenProduccion;
+
+        SELECT COALESCE(r.IdRemito, 0) INTO pIdRemito 
+        FROM OrdenesProduccion op
+        INNER JOIN LineasProducto lop ON lop.IdReferencia = op.IdOrdenProduccion AND lop.Tipo = 'O'
+        INNER JOIN LineasProducto lr ON lop.IdLineaProducto = lr.IdLineaProductoPadre
+        INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
+        WHERE op.IdOrdenProduccion = pIdOrdenProduccion;
+
+        IF pIdRemito > 0 THEN
+            UPDATE Remitos
+            SET Estado  = 'C',
+                FechaEntrega = NOW()
+            WHERE IdRemito = pIdRemito;
+        END IF;
 
         SET pRespuesta = (
             SELECT CAST(
