@@ -20,6 +20,15 @@ SALIR:BEGIN
     DECLARE pIdOrdenProduccion INT;
     DECLARE pIdProductoFinal INT;
     DECLARE pCantidad TINYINT;
+    DECLARE pIdLineaOrdenProduccion BIGINT;
+
+    DECLARE pUbicacion JSON;
+    DECLARE pIdUbicacion TINYINT;
+    DECLARE pCantidadUbicacion TINYINT;
+    DECLARE pIdRemito BIGINT;
+    DECLARE pCantidadRestante TINYINT;
+
+    DECLARE pIndice TINYINT DEFAULT 0;
 
     -- ProductoFinal
     DECLARE pIdProducto INT;
@@ -47,7 +56,10 @@ SALIR:BEGIN
 
     -- Extraigo atributos de la linea de orden de producción
     SET pIdOrdenProduccion = pIn ->> "$.LineasProducto.IdReferencia";
-    SET pCantidad = pIn ->> "$.LineasProducto.Cantidad";
+    -- Es la cantidad total. La diferencia con la suma de las cantidades de las ubicaciones, se produce sin remito de entrada.
+    SET pCantidad = pIn ->> "$.LineasProducto.Cantidad"; 
+    SET pCantidadRestante = pCantidad;
+    
 
     -- Extraigo atributos del producto final
     SET pIdProducto = pIn ->> "$.ProductosFinales.IdProducto";
@@ -87,8 +99,54 @@ SALIR:BEGIN
             LEAVE SALIR;
         END IF;
 
+        
+
+
         INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) 
         VALUES(0, NULL, pIdProductoFinal, NULL, pIdOrdenProduccion, 'O', NULL, pCantidad, NOW(), NULL, 'F');
+
+        SET pIdLineaOrdenProduccion = LAST_INSERT_ID();
+
+        WHILE pIndice < JSON_LENGTH(pIn->>"$.Ubicaciones") DO
+            SET pUbicacion = JSON_EXTRACT(pIn->>"$.Ubicaciones", CONCAT("$[", pIndice, "]"));
+            SET pIdUbicacion = pUbicacion->>"$.IdUbicacion";
+            SET pCantidadUbicacion = pUbicacion ->> "$.CantidadUbicacion";
+
+            IF pCantidadRestante < pCantidadUbicacion OR pCantidadUbicacion < 0 THEN
+                SELECT f_generarRespuesta("ERROR_CANTIDADUBICACION_INVALIDA", NULL) pOut;
+                LEAVE SALIR;
+            END IF;
+
+            IF NOT EXISTS(SELECT IdUbicacion FROM Ubicaciones WHERE IdUbicacion = pIdUbicacion) THEN
+                SELECT f_generarRespuesta("ERROR_NOEXISTE_UBICACION", NULL) pOut;
+                LEAVE SALIR;
+            END IF;
+
+            IF pCantidadUbicacion <= 0 OR f_calcularStockProducto(pIdProductoFinal, pIdUbicacion) < pCantidadUbicacion THEN
+                SELECT f_generarRespuesta("ERROR_CANTIDAD_INVALIDA", NULL) pOut;
+                LEAVE SALIR;
+            END IF;
+            
+            SELECT COALESCE(r.IdRemito, 0) INTO pIdRemito 
+            FROM LineasProducto lop 
+            INNER JOIN LineasProducto lr ON lr.IdLineaProductoPadre = lop.IdLineaProducto 
+            INNER JOIN Remitos ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R' 
+            WHERE 
+                r.Tipo = 'Y' 
+                AND lop.IdReferencia = pIdOrdenProduccion 
+                AND lop.Tipo = 'O';
+
+            -- Creo el remito del tipo transformacion salida (Y)
+            IF pIdRemito = 0 THEN
+                INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'Y', NULL, NOW(), 'Remito de transformación salida por órden de producción', 'E');
+                SET pIdRemito = LAST_INSERT_ID();
+            END IF;
+
+            INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) 
+            VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, pIdUbicacion, pIdRemito, 'R', NULL, pCantidadUbicacion, NOW(), NULL, 'P');
+            SET pCantidadRestante =  pCantidadRestante - pCantidadUbicacion;
+            SET pIndice = pIndice + 1;
+        END WHILE;
 
         SET pRespuesta = (
             SELECT CAST(
