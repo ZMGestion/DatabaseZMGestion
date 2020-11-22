@@ -71,7 +71,7 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF pCantidad <= 0  OR pCantidad IS NULL THEN
+    IF pCantidad <= 0 OR pCantidad IS NULL THEN
         SELECT f_generarRespuesta("ERROR_CANTIDAD_INVALIDA", NULL) pOut;
         LEAVE SALIR;
     END IF;
@@ -99,9 +99,6 @@ SALIR:BEGIN
             LEAVE SALIR;
         END IF;
 
-        
-
-
         INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) 
         VALUES(0, NULL, pIdProductoFinal, NULL, pIdOrdenProduccion, 'O', NULL, pCantidad, NOW(), NULL, 'F');
 
@@ -127,18 +124,18 @@ SALIR:BEGIN
                 LEAVE SALIR;
             END IF;
             
-            SELECT COALESCE(r.IdRemito, 0) INTO pIdRemito 
+            SELECT DISTINCT COALESCE(r.IdRemito, 0) INTO pIdRemito 
             FROM LineasProducto lop 
             INNER JOIN LineasProducto lr ON lr.IdLineaProductoPadre = lop.IdLineaProducto 
-            INNER JOIN Remitos ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R' 
+            INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R' 
             WHERE 
-                r.Tipo = 'Y' 
+                r.Tipo = 'X' 
                 AND lop.IdReferencia = pIdOrdenProduccion 
                 AND lop.Tipo = 'O';
 
-            -- Creo el remito del tipo transformacion salida (Y)
-            IF pIdRemito = 0 THEN
-                INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'Y', NULL, NOW(), 'Remito de transformación salida por órden de producción', 'E');
+            -- Creo el remito del tipo transformacion entrada (X)
+            IF COALESCE(pIdRemito, 0) = 0 THEN
+                INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'X', NULL, NOW(), 'Remito de transformación entrada para orden de producción', 'E');
                 SET pIdRemito = LAST_INSERT_ID();
             END IF;
 
@@ -192,7 +189,7 @@ SALIR:BEGIN
             LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
             LEFT JOIN Telas te ON pf.IdTela = te.IdTela
             LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
-            WHERE	lp.IdLineaProducto = LAST_INSERT_ID()
+            WHERE lp.IdLineaProducto = pIdLineaOrdenProduccion
         );
 	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;

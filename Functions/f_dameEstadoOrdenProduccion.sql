@@ -26,7 +26,7 @@ BEGIN
     SELECT 
         COUNT(*), 
         COUNT(IF(lop.Estado = 'C', lop.Estado, NULL)), 
-        COUNT(IF(lop.Estado = 'P', lop.Estado, NULL)) 
+        COUNT(IF(lop.Estado = 'V', lop.Estado, NULL)) 
         INTO pCantidadTotal, pCantidadCancelada, pCantidadVerificada
     FROM OrdenesProduccion op
     INNER JOIN LineasProducto lop ON (lop.Tipo = 'O' AND lop.IdReferencia = op.IdOrdenProduccion)

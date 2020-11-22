@@ -48,7 +48,7 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF; 
 
-    IF pIdTela IS NOT NULL AND pIdTela <> 0 THEN
+    IF pIdTela IS NOT NULL AND pIdTela != 0 THEN
         IF (SELECT LongitudTela FROM Productos WHERE IdProducto = pIdProducto) <=0 THEN
             SELECT f_generarRespuesta("ERROR_PRODUCTO_INVALIDO", NULL) pOut;
             LEAVE SALIR;
@@ -59,9 +59,11 @@ SALIR:BEGIN
         END IF;
     END IF;
 
-    IF pIdLustre IS NOT NULL AND NOT EXISTS (SELECT IdLustre FROM Lustres WHERE IdLustre = pIdLustre) THEN
-        SELECT "ERROR_NOEXISTE_LUSTRE" INTO pError;
-        LEAVE SALIR;
+    IF pIdLustre IS NOT NULL AND pIdLustre != 0 THEN
+        IF NOT EXISTS (SELECT IdLustre FROM Lustres WHERE IdLustre = pIdLustre) THEN
+            SELECT "ERROR_NOEXISTE_LUSTRE" INTO pError;
+            LEAVE SALIR;
+        END IF;
     END IF;
     
     -- Controlo que no se repita la combinacion Producto-Tela-Lustre o Producto-Lustre o Producto-Tela

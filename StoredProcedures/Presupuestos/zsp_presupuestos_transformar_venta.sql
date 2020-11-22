@@ -163,6 +163,17 @@ SALIR: BEGIN
             SET pIndex = pIndex + 1;
         END WHILE;
 
+        IF EXISTS(
+            SELECT IdLineaProducto 
+            FROM LineasProducto 
+            WHERE 
+                IdReferencia = @pIdVenta 
+                AND Tipo = 'V'
+                AND PrecioUnitario != f_calcularPrecioProductoFinal(IdProductoFinal) 
+        ) THEN
+            SET pEstado = 'R';
+        END IF;
+
         UPDATE Ventas
         SET Estado = pEstado
         WHERE IdVenta = @pIdVenta;
