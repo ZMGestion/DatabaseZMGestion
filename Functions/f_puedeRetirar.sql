@@ -20,7 +20,7 @@ BEGIN
         lv.Tipo = 'V'
         AND lv.IdLineaProducto = pIdLineaVenta;
 
-    IF pPrecioTotal <= f_dameCreditoAFavor(pIdVenta) THEN
+    IF f_dameCreditoAFavor(pIdVenta) >= pPrecioTotal THEN
         RETURN 'S';
     ELSE
         RETURN 'N';

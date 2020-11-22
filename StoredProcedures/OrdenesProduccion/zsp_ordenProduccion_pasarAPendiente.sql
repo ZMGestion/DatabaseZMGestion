@@ -70,11 +70,11 @@ SALIR: BEGIN
         SET Estado = 'C'
         WHERE IdOrdenProduccion = pIdOrdenProduccion;
 
-        SELECT COALESCE(r.IdRemito, 0) INTO pIdRemito 
+        SELECT DISTINCT COALESCE(r.IdRemito, 0) INTO pIdRemito 
         FROM OrdenesProduccion op
         INNER JOIN LineasProducto lop ON lop.IdReferencia = op.IdOrdenProduccion AND lop.Tipo = 'O'
-        INNER JOIN LineasProducto lr ON lop.IdLineaProducto = lr.IdLineaProductoPadre
-        INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
+        INNER JOIN LineasProducto lr ON lr.IdLineaProductoPadre = lop.IdLineaProducto AND lr.Tipo = 'R'
+        INNER JOIN Remitos r ON r.IdRemito = lr.IdReferencia
         WHERE op.IdOrdenProduccion = pIdOrdenProduccion;
 
         IF pIdRemito > 0 THEN

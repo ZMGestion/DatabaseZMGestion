@@ -24,6 +24,9 @@ SALIR:BEGIN
     -- Para la respuesta
     DECLARE pRespuesta JSON;
 
+    -- Para stock
+    DECLARE pStock JSON;
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
@@ -52,6 +55,29 @@ SALIR:BEGIN
 
     SELECT f_dameUltimoPrecio('P', pIdProducto) INTO pIdPrecio;
 
+    SELECT IdProductoFinal INTO @pIdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela IS NULL AND IdLustre IS NULL;
+
+    IF COALESCE(@pIdProductoFinal, 0) > 0 THEN
+        SET pStock = (
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    "Ubicaciones",  JSON_OBJECT(
+                        'IdUbicacion', IdUbicacion,
+                        'IdDomicilio', IdDomicilio,
+                        'Ubicacion', Ubicacion,
+                        'FechaAlta', FechaAlta,
+                        'FechaBaja', FechaBaja,
+                        'Observaciones', Observaciones,
+                        'Estado', Estado
+                    ),
+                    "Cantidad", f_calcularStockProducto(@pIdProductoFinal, IdUbicacion)
+                )
+            ) Stock
+            FROM Ubicaciones
+            WHERE f_calcularStockProducto(@pIdProductoFinal, IdUbicacion) > 0
+        );
+    END IF;
+
     SET pRespuesta = (
 			SELECT CAST(
                 JSON_OBJECT(
@@ -65,8 +91,9 @@ SALIR:BEGIN
                         'FechaAlta', p.FechaAlta,
                         'FechaBaja', p.FechaBaja,
                         'Observaciones', p.Observaciones,
-                        'Estado', p.Estado
-                        ),
+                        'Estado', p.Estado,
+                        'Stock', pStock
+                    ),
                     "GruposProducto", 
                         JSON_OBJECT(
                             'IdGrupoProducto', gp.IdGrupoProducto,

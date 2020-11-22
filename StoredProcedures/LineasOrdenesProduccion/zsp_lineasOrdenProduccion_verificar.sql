@@ -63,14 +63,19 @@ SALIR: BEGIN
             SET pLineaOrdenProduccion = JSON_EXTRACT(pLineasOrdenProduccion, CONCAT("$[", pIndice, "]"));
             SET pIdLineaOrdenProduccion = COALESCE(pLineaOrdenProduccion->>'$.IdLineaProducto', 0);
 
+            IF pIndice = 0 THEN
+                SET pIdOrdenProduccion = (SELECT COALESCE(IdReferencia, 0) FROM LineasProducto WHERE IdLineaProducto = pIdLineaOrdenProduccion AND Tipo = 'O');
+            END IF;
+
             IF NOT EXISTS(SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaOrdenProduccion AND Tipo = 'O') THEN
                 SELECT f_generarRespuesta("ERROR_NOEXISTE_LINEAORDENPRODUCCION", NULL) pOut;
                 LEAVE SALIR;
             END IF;
 
-            IF pIndice = 0 THEN
-                SET pIdOrdenProduccion = (SELECT COALESCE(IdReferencia, 0) FROM LineasProducto WHERE IdLineaProducto = pIdLineaOrdenProduccion AND Tipo = 'O');
-            END IF;
+            IF f_dameEstadoLineaOrdenProduccion(pIdLineaOrdenProduccion) != 'I' THEN
+                SELECT f_generarRespuesta("ERROR_VERIFICAR_LINEAORDENPRODUCCION_ESTADO_LINEA", NULL) pOut;
+                LEAVE SALIR;
+            END IF; 
 
             IF NOT EXISTS(SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProducto = pIdLineaOrdenProduccion AND IdReferencia = pIdOrdenProduccion AND Tipo = 'O') THEN
                 SELECT f_generarRespuesta("ERROR_DIFERENTE_ORDEN_LINEAORDENPRODUCCION", NULL) pOut;
@@ -87,18 +92,23 @@ SALIR: BEGIN
             IF EXISTS(SELECT lr.IdLineaProducto FROM LineasProducto lo INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre) THEN
                 -- El producto final está siendo transformado
                 IF pIdRemitoTransformacion IS NULL THEN
-                    INSERT INTO Remito (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'Y', NULL, NOW(), 'Remito de transformación salida por órden de producción', 'E');
+                    INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'Y', NULL, NOW(), 'Remito de transformación salida por órden de producción', 'E');
                     SET pIdRemitoTransformacion = LAST_INSERT_ID();
-                    
                 END IF;
                 INSERT INTO LineasProducto(IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, NULL, pIdRemitoTransformacion, 'R', NULL, pCantidad, NOW(), NULL, 'P');
             ELSE
                 IF pIdRemito IS NULL THEN
-                    INSERT INTO Remito (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'E', NULL, NOW(), 'Remito de entrada por órden de producción', 'E');
+                    INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'E', NULL, NOW(), 'Remito de entrada por órden de producción', 'E');
                     SET pIdRemito = LAST_INSERT_ID();            
                 END IF;
                     INSERT INTO LineasProducto(IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, NULL, pIdRemito, 'R', NULL, pCantidad, NOW(), NULL, 'P');
             END IF;
+
+            UPDATE LineasProducto
+            SET Estado = 'V'
+            WHERE 
+                IdLineaProducto = pIdLineaOrdenProduccion 
+                AND Tipo = 'O';
 
             SET pIndice = pIndice + 1;
         END WHILE;

@@ -8,11 +8,11 @@ BEGIN
     */
     
     RETURN (
-        SELECT COALESCE(SUM(IF(r.Tipo IN ('E', 'X'), lp.Cantidad, -1 * lp.Cantidad)), 0)
+        SELECT COALESCE(SUM(IF(r.Tipo IN ('E', 'Y'), lp.Cantidad, -1 * lp.Cantidad)), 0)
         FROM Remitos r
         INNER JOIN LineasProducto lp ON r.IdRemito = lp.IdReferencia AND lp.Tipo = 'R'
         WHERE
-            IF(r.Tipo IN ('E', 'X'), r.IdUbicacion = pIdUbicacion OR pIdUbicacion = 0, lp.IdUbicacion = pIdUbicacion OR pIdUbicacion = 0)
+            IF(r.Tipo IN ('E', 'Y'), r.IdUbicacion = pIdUbicacion OR pIdUbicacion = 0, lp.IdUbicacion = pIdUbicacion OR pIdUbicacion = 0)
             AND lp.IdProductoFinal = pIdProductoFinal
             AND f_calcularEstadoRemito(r.IdRemito) = 'N' AND lp.Estado != 'C');
 END $$

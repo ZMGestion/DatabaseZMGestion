@@ -40,32 +40,31 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    CALL zsp_productoFinal_crear_interno(pIn, pIdProductoFinal, pError);
-    IF pError IS NULL THEN
-        SET pRespuesta = (
-			SELECT CAST(
-                JSON_OBJECT(
-                    "ProductosFinales",  JSON_OBJECT(
-                        'IdProductoFinal', pf.IdProductoFinal,
-                        'IdProducto', pf.IdProducto,
-                        'IdLustre', pf.IdLustre,
-                        'IdTela', pf.IdTela,
-                        'FechaAlta', pf.FechaAlta,
-                        'FechaBaja', pf.FechaBaja,
-                        'Estado', pf.Estado
+    START TRANSACTION;
+        CALL zsp_productoFinal_crear_interno(pIn, pIdProductoFinal, pError);
+        IF pError IS NULL THEN
+            SET pRespuesta = (
+                SELECT CAST(
+                    JSON_OBJECT(
+                        "ProductosFinales",  JSON_OBJECT(
+                            'IdProductoFinal', pf.IdProductoFinal,
+                            'IdProducto', pf.IdProducto,
+                            'IdLustre', pf.IdLustre,
+                            'IdTela', pf.IdTela,
+                            'FechaAlta', pf.FechaAlta,
+                            'FechaBaja', pf.FechaBaja,
+                            'Estado', pf.Estado
+                        )
                     )
-                )
-             AS JSON)
-			FROM	ProductosFinales pf
-			WHERE	pf.IdProductoFinal = pIdProductoFinal
-        );
-		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
-    ELSE
-        SELECT f_generarRespuesta(NULL, pError) AS pOut;
-    END IF;
+                AS JSON)
+                FROM	ProductosFinales pf
+                WHERE	pf.IdProductoFinal = pIdProductoFinal
+            );
+            SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
+        ELSE
+            SELECT f_generarRespuesta(NULL, pError) AS pOut;
+        END IF;
+    COMMIT;
 
-    
-
-    
 END $$
 DELIMITER ;
