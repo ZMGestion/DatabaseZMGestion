@@ -82,8 +82,8 @@ SALIR:BEGIN
     END IF;
 
     START TRANSACTION;
-
-        IF NOT EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela = pIdTela AND IdLustre = pIdLustre) THEN
+      
+        IF NOT EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IF(pIdTela = 0, IdTela IS NULL, IdTela = pIdTela) AND IF(pIdLustre = 0, IdLustre IS NULL, IdLustre = pIdLustre)) THEN
             CALL zsp_productoFinal_crear_interno(pIn, pIdProductoFinal, pError);
             IF pError IS NOT NULL THEN
                 SELECT f_generarRespuesta(pError, NULL) pOut;
@@ -91,8 +91,7 @@ SALIR:BEGIN
             END IF;
         END IF;
 
-        SELECT IdProductoFinal INTO pIdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela = pIdTela AND IdLustre = pIdLustre;
-
+        SELECT IdProductoFinal INTO pIdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IF(pIdTela = 0, IdTela IS NULL, IdTela = pIdTela) AND IF(pIdLustre = 0, IdLustre IS NULL, IdLustre = pIdLustre);
         IF EXISTS (SELECT IdProductoFinal FROM LineasProducto WHERE IdReferencia = pIdPresupuesto AND Tipo = 'P' AND IdProductoFinal = pIdProductoFinal AND IdLineaProducto <> pIdLineaProducto) THEN
             SELECT f_generarRespuesta("ERROR_PRESUPUESTO_EXISTE_PRODUCTOFINAL", NULL) pOut;
             LEAVE SALIR;
@@ -105,8 +104,8 @@ SALIR:BEGIN
 
         UPDATE LineasProducto
         SET IdProductoFinal = pIdProductoFinal,
-            PrecioUnitario = pPrecioUnitario,
-            Cantidad = pCantidad
+            Cantidad = pCantidad,
+            PrecioUnitario = pPrecioUnitario
         WHERE IdLineaProducto = pIdLineaProducto;
 
         SET pRespuesta = (
