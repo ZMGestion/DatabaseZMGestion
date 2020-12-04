@@ -89,19 +89,53 @@ SALIR: BEGIN
 
             SELECT IdProductoFinal, Cantidad INTO pIdProductoFinal, pCantidad FROM LineasProducto WHERE IdLineaProducto = pIdLineaOrdenProduccion;
 
-            IF EXISTS(SELECT lr.IdLineaProducto FROM LineasProducto lo INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre) THEN
-                -- El producto final está siendo transformado
-                IF pIdRemitoTransformacion IS NULL THEN
-                    INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'Y', NULL, NOW(), 'Remito de transformación salida por órden de producción', 'E');
-                    SET pIdRemitoTransformacion = LAST_INSERT_ID();
+            IF EXISTS(
+                SELECT lr.IdLineaProducto 
+                FROM LineasProducto lo 
+                INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
+                INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
+                WHERE 
+                    lo.IdLineaProducto = pIdLineaOrdenProduccion
+                    AND r.Tipo = 'Y'
+            ) THEN
+                -- El producto final está siendo transformado. 
+                -- Seteo en remito el Id del remito de transformacion entrada.
+                SET pIdRemito = (
+                    SELECT r.IdRemito 
+                    FROM LineasProducto lo 
+                    INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
+                    INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
+                    WHERE 
+                        lo.IdLineaProducto = pIdLineaOrdenProduccion
+                        AND r.Tipo = 'X'
+                );
+                IF pIdRemito IS NULL THEN
+                    INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) 
+                    VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'X', NULL, NOW(), 'Remito de transformación entrada por órden de producción', 'E');
+
+                    SET pIdRemito = LAST_INSERT_ID();
                 END IF;
-                INSERT INTO LineasProducto(IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, NULL, pIdRemitoTransformacion, 'R', NULL, pCantidad, NOW(), NULL, 'P');
+
+                INSERT INTO LineasProducto(IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) 
+                VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, NULL, pIdRemito, 'R', NULL, pCantidad, NOW(), NULL, 'P');
             ELSE
+                SET pIdRemito = (
+                    SELECT r.IdRemito 
+                    FROM LineasProducto lo 
+                    INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
+                    INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
+                    WHERE 
+                        lo.IdLineaProducto = pIdLineaOrdenProduccion
+                        AND r.Tipo = 'E'
+                );
+
                 IF pIdRemito IS NULL THEN
                     INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'E', NULL, NOW(), 'Remito de entrada por órden de producción', 'E');
                     SET pIdRemito = LAST_INSERT_ID();            
                 END IF;
-                    INSERT INTO LineasProducto(IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, NULL, pIdRemito, 'R', NULL, pCantidad, NOW(), NULL, 'P');
+
+                INSERT INTO LineasProducto(IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) 
+                VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, NULL, pIdRemito, 'R', NULL, pCantidad, NOW(), NULL, 'P');
             END IF;
 
             UPDATE LineasProducto
@@ -112,6 +146,41 @@ SALIR: BEGIN
 
             SET pIndice = pIndice + 1;
         END WHILE;
+
+        SET pIdRemito = (
+            SELECT r.IdRemito 
+            FROM LineasProducto lo
+            INNER JOIN OrdenesProduccion op ON lo.IdReferencia = op.IdOrdenProduccion AND lo.Tipo = 'O' 
+            INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
+            INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
+            WHERE 
+                op.IdOrdenProduccion = pIdOrdenProduccion
+                AND r.Tipo = 'E'
+        );
+
+        IF pIdRemito IS NOT NULL THEN
+            UPDATE Remitos
+            SET Estado = 'C',
+                FechaEntrega = NOW()
+            WHERE IdRemito = pIdRemito;
+        END IF;
+
+        SET pIdRemito = (
+            SELECT r.IdRemito 
+            FROM LineasProducto lo
+            INNER JOIN OrdenesProduccion op ON lo.IdReferencia = op.IdOrdenProduccion AND lo.Tipo = 'O' 
+            INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
+            INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
+            WHERE 
+                op.IdOrdenProduccion = pIdOrdenProduccion
+                AND r.Tipo = 'X'
+        );
+        IF pIdRemito IS NOT NULL THEN
+            UPDATE Remitos
+            SET Estado = 'C',
+                FechaEntrega = NOW()
+            WHERE IdRemito = pIdRemito;
+        END IF;
 
         SET pRespuesta = (
             SELECT CAST( JSON_OBJECT(

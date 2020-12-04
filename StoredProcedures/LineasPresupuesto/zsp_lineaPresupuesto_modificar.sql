@@ -82,8 +82,8 @@ SALIR:BEGIN
     END IF;
 
     START TRANSACTION;
-
-        IF NOT EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela = pIdTela AND IdLustre = pIdLustre) THEN
+      
+        IF NOT EXISTS (SELECT IdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IF(pIdTela = 0, IdTela IS NULL, IdTela = pIdTela) AND IF(pIdLustre = 0, IdLustre IS NULL, IdLustre = pIdLustre)) THEN
             CALL zsp_productoFinal_crear_interno(pIn, pIdProductoFinal, pError);
             IF pError IS NOT NULL THEN
                 SELECT f_generarRespuesta(pError, NULL) pOut;
@@ -91,8 +91,7 @@ SALIR:BEGIN
             END IF;
         END IF;
 
-        SELECT IdProductoFinal INTO pIdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela = pIdTela AND IdLustre = pIdLustre;
-
+        SELECT IdProductoFinal INTO pIdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IF(pIdTela = 0, IdTela IS NULL, IdTela = pIdTela) AND IF(pIdLustre = 0, IdLustre IS NULL, IdLustre = pIdLustre);
         IF EXISTS (SELECT IdProductoFinal FROM LineasProducto WHERE IdReferencia = pIdPresupuesto AND Tipo = 'P' AND IdProductoFinal = pIdProductoFinal AND IdLineaProducto <> pIdLineaProducto) THEN
             SELECT f_generarRespuesta("ERROR_PRESUPUESTO_EXISTE_PRODUCTOFINAL", NULL) pOut;
             LEAVE SALIR;
@@ -105,30 +104,47 @@ SALIR:BEGIN
 
         UPDATE LineasProducto
         SET IdProductoFinal = pIdProductoFinal,
-            PrecioUnitario = pPrecioUnitario,
-            Cantidad = pCantidad
+            Cantidad = pCantidad,
+            PrecioUnitario = pPrecioUnitario
         WHERE IdLineaProducto = pIdLineaProducto;
 
         SET pRespuesta = (
-                SELECT CAST(
-                    JSON_OBJECT(
-                        "LineasProducto",  JSON_OBJECT(
-                            'IdLineaProducto', lp.IdLineaProducto,
-                            'IdLineaProductoPadre', lp.IdLineaProductoPadre,
-                            'IdProductoFinal', lp.IdProductoFinal,
-                            'IdUbicacion', lp.IdUbicacion,
-                            'IdReferencia', lp.IdReferencia,
-                            'Tipo', lp.Tipo,
-                            'PrecioUnitario', lp.PrecioUnitario,
-                            'Cantidad', lp.Cantidad,
-                            'FechaAlta', lp.FechaAlta,
-                            'FechaCancelacion', lp.FechaCancelacion,
-                            'Estado', lp.Estado
-                        ) 
-                    )
-                AS JSON)
-        FROM	LineasProducto lp
-        WHERE	lp.IdLineaProducto = pIdLineaProducto);
+            SELECT JSON_OBJECT(
+                "LineasProducto", JSON_OBJECT(
+                    "IdLineaProducto", lp.IdLineaProducto,
+                    "IdProductoFinal", lp.IdProductoFinal,
+                    "Cantidad", lp.Cantidad,
+                    "PrecioUnitario", lp.PrecioUnitario
+                    ),
+                "ProductosFinales", JSON_OBJECT(
+                    "IdProductoFinal", pf.IdProductoFinal,
+                    "IdProducto", pf.IdProducto,
+                    "IdTela", pf.IdTela,
+                    "IdLustre", pf.IdLustre,
+                    "FechaAlta", pf.FechaAlta
+                ),
+                "Productos",JSON_OBJECT(
+                    "IdProducto", pr.IdProducto,
+                    "Producto", pr.Producto
+                ),
+                "Telas",IF (te.IdTela  IS NOT NULL,
+                JSON_OBJECT(
+                    "IdTela", te.IdTela,
+                    "Tela", te.Tela
+                ),NULL),
+                "Lustres",IF (lu.IdLustre  IS NOT NULL,
+                JSON_OBJECT(
+                    "IdLustre", lu.IdLustre,
+                    "Lustre", lu.Lustre
+                ), NULL)
+            )
+            FROM LineasProducto lp
+            LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
+            LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
+            LEFT JOIN Telas te ON pf.IdTela = te.IdTela
+            LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
+            WHERE	lp.IdLineaProducto = pIdLineaProducto
+        );  
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
 
     COMMIT;

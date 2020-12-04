@@ -113,19 +113,60 @@ SALIR: BEGIN
         END WHILE;
 
         SET pRespuesta = (
-            SELECT CAST(
-                JSON_OBJECT(
-                    "OrdenesProduccion",  JSON_OBJECT(
-                        'IdOrdenProduccion', IdOrdenProduccion,
-                        'IdUsuario', IdUsuario,
-                        'FechaAlta', FechaAlta,
-                        'Observaciones', Observaciones,
-                        'Estado', Estado
-                    ) 
-                )
-            AS JSON)
-            FROM    OrdenesProduccion
-            WHERE   IdOrdenProduccion = LAST_INSERT_ID()
+            SELECT CAST( JSON_OBJECT(
+                "OrdenesProduccion",  JSON_OBJECT(
+                    'IdOrdenProduccion', op.IdOrdenProduccion,
+                    'IdUsuario', op.IdUsuario,
+                    'FechaAlta', op.FechaAlta,
+                    'Observaciones', op.Observaciones,
+                    'Estado', f_dameEstadoOrdenProduccion(op.IdOrdenProduccion)
+                ),
+                "Usuarios", JSON_OBJECT(
+                    "Nombres", u.Nombres,
+                    "Apellidos", u.Apellidos
+                ),
+                "LineasOrdenProduccion", IF(COUNT(lp.IdLineaProducto) > 0, JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        "LineasProducto", JSON_OBJECT(
+                            "IdLineaProducto", lp.IdLineaProducto,
+                            "IdProductoFinal", lp.IdProductoFinal,
+                            "IdLineaProductoPadre", lp.IdLineaProductoPadre,
+                            "Cantidad", lp.Cantidad,
+                            "PrecioUnitario", lp.PrecioUnitario,
+                            "Estado", f_dameEstadoLineaOrdenProduccion(lp.IdLineaProducto)
+                        ),
+                        "ProductosFinales", JSON_OBJECT(
+                            "IdProductoFinal", pf.IdProductoFinal,
+                            "IdProducto", pf.IdProducto,
+                            "IdTela", pf.IdTela,
+                            "IdLustre", pf.IdLustre,
+                            "FechaAlta", pf.FechaAlta
+                        ),
+                        "Productos",JSON_OBJECT(
+                            "IdProducto", pr.IdProducto,
+                            "Producto", pr.Producto
+                        ),
+                        "Telas",IF (te.IdTela  IS NOT NULL,
+                        JSON_OBJECT(
+                            "IdTela", te.IdTela,
+                            "Tela", te.Tela
+                        ),NULL),
+                        "Lustres",IF (lu.IdLustre  IS NOT NULL,
+                        JSON_OBJECT(
+                            "IdLustre", lu.IdLustre,
+                            "Lustre", lu.Lustre
+                        ), NULL)
+                    )
+                ), JSON_ARRAY())
+            ) AS JSON)
+            FROM OrdenesProduccion op
+            INNER JOIN Usuarios u ON u.IdUsuario = op.IdUsuario
+            LEFT JOIN LineasProducto lp ON op.IdOrdenProduccion = lp.IdReferencia AND lp.Tipo = 'O'
+            LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
+            LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
+            LEFT JOIN Telas te ON pf.IdTela = te.IdTela
+            LEFT JOIN Lustres lu ON pf.IdLustre = lu.IdLustre
+            WHERE IdOrdenProduccion = @pIdOrdenProduccion
         );
 	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
