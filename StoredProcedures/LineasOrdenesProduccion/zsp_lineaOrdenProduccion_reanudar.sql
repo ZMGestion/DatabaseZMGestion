@@ -19,6 +19,16 @@ SALIR:BEGIN
 
     -- Para la respuesta
     DECLARE pRespuesta JSON;
+    DECLARE pIdRemito INT;
+
+    DECLARE pIdProductosFinales JSON;
+    DECLARE pLineaProducto JSON;
+    DECLARE pIdProductoFinal INT;
+    DECLARE pIdUbicacion INT;
+    DECLARE pIndex INT DEFAULT 0;
+    DECLARE pLongitud INT DEFAULT 0;
+    DECLARE pCantidadStock INT;
+    DECLARE pCantidadSolicitada INT;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -72,7 +82,60 @@ SALIR:BEGIN
         END IF;
     END IF;
 
+    SELECT DISTINCT r.IdRemito INTO pIdRemito 
+        FROM LineasProducto lop 
+        INNER JOIN LineasProducto lr ON lr.IdLineaProductoPadre = lop.IdLineaProducto 
+        INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R' 
+        WHERE 
+            r.Tipo = 'X' 
+            AND lop.IdLineaProducto = pIdLineaProducto 
+            AND lop.Tipo = 'O';
+
     START TRANSACTION;
+        IF COALESCE(pIdRemito, 0) != 0 THEN
+            SET pIdProductosFinales = (
+                SELECT JSON_ARRAYAGG(JSON_OBJECT(
+                    'IdLineaProducto', IdLineaProducto,
+                    'IdLineaProductoPadre', IdLineaProductoPadre,
+                    'IdProductoFinal', IdProductoFinal,
+                    'IdUbicacion', IdUbicacion,
+                    'Cantidad', Cantidad
+                )) 
+                FROM LineasProducto 
+                WHERE 
+                    IdReferencia = pIdRemito
+                    AND Tipo = 'R'
+            );
+
+            SET pLongitud = JSON_LENGTH(pIdProductosFinales);
+
+            WHILE pIndex < pLongitud DO
+                SET pLineaProducto = JSON_EXTRACT(pIdProductosFinales, CONCAT("$[", pIndex, "]"));
+                
+                SELECT lr.Cantidad INTO pCantidadSolicitada 
+                FROM Remitos r
+                INNER JOIN LineasProducto lr 
+                WHERE 
+                    lr.IdReferencia = r.IdRemito 
+                    AND lr.Tipo = 'R' 
+                    AND r.IdRemito = pIdRemito;
+
+                SET pIdProductoFinal = pLineaProducto->>"$.IdProductoFinal";
+                SET pIdUbicacion = pLineaProducto->>"$.IdUbicacion";
+
+                IF f_calcularStockProducto(pIdProductoFinal, pIdUbicacion) < pCantidadSolicitada THEN
+                    SELECT f_generarRespuesta("ERROR_SIN_STOCK", NULL) pOut;
+                    LEAVE SALIR;
+                END IF;
+
+                SET pIndex = pIndex + 1;
+            END WHILE;
+
+            UPDATE Remitos
+            SET FechaEntrega = NOW()
+            WHERE IdRemito = pIdRemito; 
+        END IF;
+
         UPDATE LineasProducto 
         SET Estado = 'F'
         WHERE 

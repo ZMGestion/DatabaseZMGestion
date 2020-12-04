@@ -66,7 +66,7 @@ SALIR: BEGIN
     );
 
     SET pRespuesta = (
-        SELECT JSON_OBJECT(
+        SELECT DISTINCT JSON_OBJECT(
             "Ventas",  JSON_OBJECT(
                 'IdVenta', v.IdVenta,
                 'IdCliente', v.IdCliente,
@@ -136,7 +136,7 @@ SALIR: BEGIN
         LEFT JOIN Domicilios d ON d.IdDomicilio = v.IdDomicilio
         INNER JOIN Ubicaciones ub ON ub.IdUbicacion = v.IdUbicacion
         LEFT JOIN LineasProducto lp ON v.IdVenta = lp.IdReferencia AND lp.Tipo = 'V'
-        LEFT JOIN LineasProducto lr ON lp.IdLineaProducto = lr.IdLineaProductoPadre
+        LEFT JOIN LineasProducto lr ON lp.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
         LEFT JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
         LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
         LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto

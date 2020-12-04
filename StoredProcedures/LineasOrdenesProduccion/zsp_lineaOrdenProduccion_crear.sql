@@ -23,10 +23,12 @@ SALIR:BEGIN
     DECLARE pIdLineaOrdenProduccion BIGINT;
 
     DECLARE pUbicacion JSON;
+    DECLARE pUbicaciones JSON;
     DECLARE pIdUbicacion TINYINT;
     DECLARE pCantidadUbicacion TINYINT;
     DECLARE pIdRemito BIGINT;
     DECLARE pCantidadRestante TINYINT;
+    DECLARE pIdEsqueleto INT;
 
     DECLARE pIndice TINYINT DEFAULT 0;
 
@@ -41,8 +43,8 @@ SALIR:BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
-        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
+        SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
 	END;
 
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
@@ -60,6 +62,7 @@ SALIR:BEGIN
     SET pCantidad = pIn ->> "$.LineasProducto.Cantidad"; 
     SET pCantidadRestante = pCantidad;
     
+    SET pUbicaciones = COALESCE(pIn->>"$.Ubicaciones", JSON_ARRAY());
 
     -- Extraigo atributos del producto final
     SET pIdProducto = pIn ->> "$.ProductosFinales.IdProducto";
@@ -93,6 +96,7 @@ SALIR:BEGIN
         END IF;
         
         SELECT IdProductoFinal INTO pIdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IF(pIdTela IS NULL, IdTela IS NULL, IdTela = pIdTela) AND IF(pIdLustre IS NULL, IdLustre IS NULL, IdLustre = pIdLustre);
+        SELECT IdProductoFinal INTO pIdEsqueleto FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela IS NULL AND IdLustre IS NULL;
  
         IF EXISTS (SELECT IdProductoFinal FROM LineasProducto WHERE IdReferencia = pIdOrdenProduccion AND Tipo = 'O' AND IdProductoFinal = pIdProductoFinal) THEN
             SELECT f_generarRespuesta("ERROR_ORDEN_PRODUCCION_EXISTE_PRODUCTOFINAL", NULL) pOut;
@@ -104,8 +108,8 @@ SALIR:BEGIN
 
         SET pIdLineaOrdenProduccion = LAST_INSERT_ID();
 
-        WHILE pIndice < JSON_LENGTH(pIn->>"$.Ubicaciones") DO
-            SET pUbicacion = JSON_EXTRACT(pIn->>"$.Ubicaciones", CONCAT("$[", pIndice, "]"));
+        WHILE pIndice < JSON_LENGTH(pUbicaciones) DO
+            SET pUbicacion = JSON_EXTRACT(pUbicaciones, CONCAT("$[", pIndice, "]"));
             SET pIdUbicacion = pUbicacion->>"$.IdUbicacion";
             SET pCantidadUbicacion = pUbicacion ->> "$.CantidadUbicacion";
 
@@ -119,7 +123,7 @@ SALIR:BEGIN
                 LEAVE SALIR;
             END IF;
 
-            IF pCantidadUbicacion <= 0 OR f_calcularStockProducto(pIdProductoFinal, pIdUbicacion) < pCantidadUbicacion THEN
+            IF pCantidadUbicacion <= 0 OR f_calcularStockProducto(pIdEsqueleto, pIdUbicacion) < pCantidadUbicacion THEN
                 SELECT f_generarRespuesta("ERROR_CANTIDAD_INVALIDA", NULL) pOut;
                 LEAVE SALIR;
             END IF;
@@ -140,7 +144,8 @@ SALIR:BEGIN
             END IF;
 
             INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) 
-            VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, pIdUbicacion, pIdRemito, 'R', NULL, pCantidadUbicacion, NOW(), NULL, 'P');
+            VALUES(0, pIdLineaOrdenProduccion, pIdEsqueleto, pIdUbicacion, pIdRemito, 'R', NULL, pCantidadUbicacion, NOW(), NULL, 'P');
+            
             SET pCantidadRestante =  pCantidadRestante - pCantidadUbicacion;
             SET pIndice = pIndice + 1;
         END WHILE;
