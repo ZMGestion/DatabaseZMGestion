@@ -102,11 +102,10 @@ SALIR: BEGIN
     SELECT *
     FROM Clientes 
     WHERE 
-        IF (Nombres IS NULL AND Apellidos IS NULL, TRUE, CONCAT(Apellidos,',',Nombres) LIKE CONCAT('%', pNombresApellidos, '%')) AND
         Email LIKE CONCAT(pEmail, '%') AND
         Documento LIKE CONCAT(pDocumento, '%') AND
         Telefono LIKE CONCAT(pTelefono, '%') AND
-        IF (RazonSocial IS NULL, TRUE, RazonSocial LIKE CONCAT(pRazonSocial, '%')) AND 
+        IF (RazonSocial IS NULL, CONCAT(Apellidos,',',Nombres) LIKE CONCAT('%', pNombresApellidos, '%'), RazonSocial LIKE CONCAT(pRazonSocial, '%')) AND 
         (IdPais = pIdPais OR pIdPais = '**') AND
         (Tipo = pTipo OR pTipo = 'T') AND
         (Estado = pEstado OR pEstado = 'T') 

@@ -23,6 +23,7 @@ BEGIN
         WHERE 
             IdVenta = pIdVenta 
             AND Tipo = 'R'
+            AND Estado = 'A'
     ), 0);
 
     SET pTotalRetirado = COALESCE((

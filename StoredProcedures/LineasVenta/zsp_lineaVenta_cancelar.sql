@@ -16,6 +16,13 @@ SALIR: BEGIN
     -- Linea de venta
     DECLARE pLineasProducto JSON;
     DECLARE pIdLineaProducto bigint;
+
+    DECLARE pFacturado DECIMAL(10,2);
+    DECLARE pCancelado DECIMAL(10,2);
+    DECLARE pMontoCancelado DECIMAL(10, 2);
+    DECLARE pMontoACancelar DECIMAL(10,2);
+
+    DECLARE pIdLineaRemito BIGINT;
     
     DECLARE pIdVenta int;
 
@@ -56,34 +63,40 @@ SALIR: BEGIN
     END IF;
 
     SELECT IdReferencia, Cantidad, PrecioUnitario INTO pIdVenta, @pCantidad, @pPrecioUnitario FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto;
-    SET @pMontoCancelado = COALESCE((SELECT SUM(PrecioUnitario * Cantidad) FROM LineasProducto WHERE IdReferencia = pIdVenta AND Tipo = 'V' AND Estado = 'C'), 0);
+    SET pMontoCancelado = COALESCE((SELECT SUM(PrecioUnitario * Cantidad) FROM LineasProducto WHERE IdReferencia = pIdVenta AND Tipo = 'V' AND Estado = 'C'), 0);
+    SET pMontoACancelar = COALESCE((SELECT PrecioUnitario * Cantidad FROM LineasProducto WHERE IdLineaProducto = pIdLineaProducto), 0);
 
     -- Compruebo si existe una Factura A. En caso que haya deben existir notas de credito cuya suma total sea igual a las lineas de venta canceladas.
     IF EXISTS(SELECT IdComprobante FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'A' AND Estado = 'A') THEN
-        SET @pFacturado = (SELECT COALESCE(SUM(Monto),0) FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'A' AND Estado = 'A');
-        SET @pCancelado = (SELECT COALESCE(SUM(Monto),0)FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'N' AND Estado ='A');
-        IF @pCancelado < @pFacturado  THEN
-            SELECT f_generarRespuesta("ERROR_NOTACREDITOA_VENTA", NULL) pOut;
-            LEAVE SALIR;
+        SET pFacturado = (SELECT COALESCE(SUM(Monto),0) FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'A' AND Estado = 'A');
+        SET pCancelado = (SELECT COALESCE(SUM(Monto),0)FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'N' AND Estado ='A');
+        IF (pFacturado - pCancelado) > pMontoACancelar THEN
+            IF pCancelado < (pMontoCancelado + pMontoACancelar) THEN
+                SELECT f_generarRespuesta("ERROR_NOTACREDITOA_VENTA", NULL) pOut;
+                LEAVE SALIR;
+            END IF;
         END IF;
     END IF;
 
     IF EXISTS(SELECT IdComprobante FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'B' AND Estado = 'A') THEN
-        SET @pFacturado = (SELECT COALESCE(SUM(Monto),0) FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'B' AND Estado = 'A');
-        SET @pCancelado = (SELECT COALESCE(SUM(Monto),0) FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'M' AND Estado ='A');
-        IF @pCancelado < @pFacturado  THEN
-            SELECT f_generarRespuesta("ERROR_NOTACREDITOB_VENTA", NULL) pOut;
-            LEAVE SALIR;
+        SET pFacturado = (SELECT COALESCE(SUM(Monto),0) FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'B' AND Estado = 'A');
+        SET pCancelado = (SELECT COALESCE(SUM(Monto),0) FROM Comprobantes WHERE IdVenta = pIdVenta AND Tipo = 'M' AND Estado ='A');
+        IF (pFacturado - pCancelado) > pMontoACancelar THEN
+            IF pCancelado < (pMontoCancelado + pMontoACancelar) THEN
+                SELECT f_generarRespuesta("ERROR_NOTACREDITOB_VENTA", NULL) pOut;
+                LEAVE SALIR;
+            END IF;
         END IF;
     END IF;
 
     START TRANSACTION;
-        IF EXISTS (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProductoPadre = pIdLineaProducto AND Tipo = 'R') THEN
-            SET @pIdLineaRemito = (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProductoPadre = pIdLineaProducto AND Tipo = 'R');
+        SET pIdLineaRemito = (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProductoPadre = pIdLineaProducto AND Tipo = 'R');
+        IF COALESCE(pIdLineaRemito, 0) != 0 THEN
+            SET pIdLineaRemito = (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProductoPadre = pIdLineaProducto AND Tipo = 'R');
             UPDATE LineasProducto
             SET Estado = 'C',
                 FechaCancelacion = NOW()
-            WHERE IdLineaProducto = @pIdLineaRemito;
+            WHERE IdLineaProducto = pIdLineaRemito;
         END IF;
 
         UPDATE LineasProducto
