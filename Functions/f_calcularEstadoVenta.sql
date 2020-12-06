@@ -12,13 +12,15 @@ BEGIN
             - N: Entregada
             - C: Pendiente
     */
-    SET @pEstado = (SELECT Estado FROM Ventas WHERE IdVenta = pIdVenta);
+    DECLARE pEstado CHAR(1);
 
-    IF @pEstado IN ('E', 'R') THEN
-        RETURN @pEstado;
+    SET pEstado = (SELECT Estado FROM Ventas WHERE IdVenta = pIdVenta);
+
+    IF pEstado IN ('E', 'R') THEN
+        RETURN pEstado;
     END IF;
 
-    IF @pEstado = 'C' THEN
+    IF pEstado = 'C' THEN
         -- La venta esta cancelada si todas las lineas de venta estan canceladas. 
         IF
             NOT EXISTS(SELECT IdLineaProducto FROM LineasProducto WHERE Tipo = 'V' AND IdReferencia = pIdVenta AND Estado != 'C')

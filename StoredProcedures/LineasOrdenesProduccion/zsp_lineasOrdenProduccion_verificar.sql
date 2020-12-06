@@ -28,6 +28,9 @@ SALIR: BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
+    DECLARE pIdVenta INT;
+    DECLARE pIdLineaVenta BIGINT;
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SHOW ERRORS;
@@ -136,6 +139,20 @@ SALIR: BEGIN
 
                 INSERT INTO LineasProducto(IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) 
                 VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, NULL, pIdRemito, 'R', NULL, pCantidad, NOW(), NULL, 'P');
+            END IF;
+
+            -- Si viene a partir de una venta generamos un remito de salida para la venta asociada a la linea de venta.
+            SELECT lv.IdLineaProducto, lv.IdReferencia INTO pIdLineaVenta, pIdVenta
+            FROM LineasProducto lop
+            INNER JOIN LineasProducto lv ON lv.IdLineaProducto = lop.IdLineaProductoPadre AND lv.Tipo = 'V'
+            WHERE lop.IdLineaProducto = pIdLineaOrdenProduccion;
+            
+            IF COALESCE(pIdLineaVenta, 0) != 0 THEN
+                INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) 
+                VALUES(0, NULL, pIdUsuarioEjecuta, 'S', NULL, NOW(), 'Remito de reserva', 'C');
+
+                INSERT INTO LineasProducto (IdLineaProducto, IdLineaProductoPadre, IdProductoFinal, IdUbicacion, IdReferencia, Tipo, PrecioUnitario, Cantidad, FechaAlta, FechaCancelacion, Estado) 
+                VALUES(0, pIdLineaVenta, pIdProductoFinal, pIdUbicacion, LAST_INSERT_ID(), 'R', NULL, pCantidad, NOW(), NULL, 'P');
             END IF;
 
             UPDATE LineasProducto

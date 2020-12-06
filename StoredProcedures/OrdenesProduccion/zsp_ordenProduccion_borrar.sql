@@ -12,6 +12,8 @@ SALIR: BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
+    DECLARE pIdRemito INT;
+
     DECLARE pIdOrdenProduccion int;
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -32,15 +34,33 @@ SALIR: BEGIN
 
     SET pIdOrdenProduccion = pIn ->> '$.OrdenesProduccion.IdOrdenProduccion';
 
-    IF NOT EXISTS (SELECT IdOrdenProduccion FROM OrdenesProduccion WHERE IdOrdenProduccion = pIdOrdenProduccion AND Estado = 'E') THEN
+    IF NOT EXISTS (SELECT IdOrdenProduccion FROM OrdenesProduccion WHERE IdOrdenProduccion = pIdOrdenProduccion AND f_dameEstadoOrdenProduccion(IdOrdenProduccion) IN('E', 'C')) THEN
         SELECT f_generarRespuesta("ERROR_INVALIDO_ORDEN_PRODUCCION", NULL) pOut;
         LEAVE SALIR;
     END IF;
 
+    -- Obtenemos el IdRemito de "Transformación entrada" (X) asociado, en caso de que se esté fabricando utilizando esqueletos
+    SELECT DISTINCT r.IdRemito INTO pIdRemito 
+        FROM LineasProducto lop 
+        INNER JOIN LineasProducto lr ON lr.IdLineaProductoPadre = lop.IdLineaProducto 
+        INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R' 
+        WHERE 
+            r.Tipo = 'X' 
+            AND lop.IdReferencia = pIdOrdenProduccion 
+            AND lop.Tipo = 'O';
+
     START TRANSACTION;
-        DELETE
-        FROM LineasProducto
-        WHERE Tipo = 'O' AND IdReferencia = pIdOrdenProduccion;
+        IF COALESCE(pIdRemito, 0) != 0 THEN
+            -- Eliminamos todas las lineas de remito del remito
+            DELETE FROM LineasProducto
+            WHERE 
+                IdReferencia = pIdRemito
+                AND Tipo = 'R';
+
+            -- Eliminamos el remito
+            DELETE FROM Remitos
+            WHERE IdRemito = pIdRemito;
+        END IF;
 
         DELETE
         FROM OrdenesProduccion

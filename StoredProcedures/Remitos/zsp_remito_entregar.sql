@@ -15,6 +15,9 @@ SALIR: BEGIN
     DECLARE pToken varchar(256);
     DECLARE pMensaje text;
 
+    DECLARE pIdVenta INT;
+    DECLARE pPrecioTotal DECIMAL(10,2);
+
     DECLARE pRespuesta JSON;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -23,7 +26,6 @@ SALIR: BEGIN
         SELECT f_generarRespuesta("ERROR_TRANSACCION", NULL) pOut;
         ROLLBACK;
     END;
-    
     
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
@@ -52,7 +54,20 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
+    SELECT lv.IdReferencia, (lv.Cantidad * lv.PrecioUnitario) INTO pIdVenta, pPrecioTotal
+    FROM Remitos r 
+    INNER JOIN LineasProducto lr ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
+    INNER JOIN LineasProducto lv ON lv.IdLineaProducto = lr.IdLineaProductoPadre AND lv.Tipo = 'V'
+    WHERE r.IdRemito = pIdRemito;
+
     START TRANSACTION;
+        IF COALESCE(pIdVenta, 0) != 0 THEN
+            IF f_dameCreditoAFavor(pIdVenta) < pPrecioTotal THEN
+                SELECT f_generarRespuesta("ERROR_CREDITO_INSUFICIENTE", NULL) pOut;
+                LEAVE SALIR;
+            END IF;
+        END IF;
+
         UPDATE Remitos
         SET FechaEntrega = pFechaEntrega
         WHERE IdRemito = pIdRemito;

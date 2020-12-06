@@ -15,6 +15,9 @@ SALIR:BEGIN
     DECLARE pToken VARCHAR(256);
     DECLARE pMensaje TEXT;
 
+    DECLARE pIdRemitoAnterior INT;
+    DECLARE pIdRemitoNuevo INT;
+
     -- Linea de presupuesto
     DECLARE pIdLineaProducto BIGINT;
 
@@ -50,7 +53,40 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
+    SELECT DISTINCT r.IdRemito INTO pIdRemitoAnterior
+        FROM LineasProducto lop 
+        INNER JOIN LineasProducto lr ON lr.IdLineaProductoPadre = lop.IdLineaProducto 
+        INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R' 
+        WHERE 
+            r.Tipo = 'X' 
+            AND lop.IdLineaProducto = pIdLineaProducto 
+            AND lop.Tipo = 'O';
+
     START TRANSACTION;
+        IF COALESCE(pIdRemitoAnterior, 0) != 0 THEN
+            -- (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado)
+            INSERT INTO Remitos 
+            SELECT 0, IdUbicacion, IdUsuario, Tipo, NULL, NOW(), Observaciones, Estado FROM Remitos WHERE IdRemito = pIdRemitoAnterior;
+
+            UPDATE LineasProducto
+            SET IdReferencia = LAST_INSERT_ID()
+            WHERE 
+                IdLineaProductoPadre = pIdLineaProducto
+                AND Tipo = 'R'; 
+
+            IF NOT EXISTS(
+                SELECT IdLineaProducto
+                FROM LineasProducto
+                WHERE  
+                    IdReferencia = pIdRemitoAnterior
+                    AND Tipo = 'R'
+            ) THEN
+                -- Quedó huerfana borramos el remito
+                DELETE FROM Remitos
+                WHERE IdRemito = pIdRemitoAnterior;
+            END IF;
+        END IF;
+
         UPDATE LineasProducto 
         SET Estado = 'C'
         WHERE 

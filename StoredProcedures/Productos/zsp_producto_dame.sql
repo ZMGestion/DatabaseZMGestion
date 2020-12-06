@@ -18,6 +18,8 @@ SALIR:BEGIN
     DECLARE pProductos JSON;
     DECLARE pIdProducto int;
 
+    DECLARE pIdProductoFinal INT;
+
     -- Precio actual
     DECLARE pIdPrecio int;
 
@@ -55,9 +57,9 @@ SALIR:BEGIN
 
     SELECT f_dameUltimoPrecio('P', pIdProducto) INTO pIdPrecio;
 
-    SELECT IdProductoFinal INTO @pIdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela IS NULL AND IdLustre IS NULL;
+    SELECT IdProductoFinal INTO pIdProductoFinal FROM ProductosFinales WHERE IdProducto = pIdProducto AND IdTela IS NULL AND IdLustre IS NULL;
 
-    IF COALESCE(@pIdProductoFinal, 0) > 0 THEN
+    IF COALESCE(pIdProductoFinal, 0) > 0 THEN
         SET pStock = (
             SELECT JSON_ARRAYAGG(
                 JSON_OBJECT(
@@ -70,11 +72,11 @@ SALIR:BEGIN
                         'Observaciones', Observaciones,
                         'Estado', Estado
                     ),
-                    "Cantidad", f_calcularStockProducto(@pIdProductoFinal, IdUbicacion)
+                    "Cantidad", f_calcularStockProducto(pIdProductoFinal, IdUbicacion)
                 )
             ) Stock
             FROM Ubicaciones
-            WHERE f_calcularStockProducto(@pIdProductoFinal, IdUbicacion) > 0
+            WHERE f_calcularStockProducto(pIdProductoFinal, IdUbicacion) > 0
         );
     END IF;
 
