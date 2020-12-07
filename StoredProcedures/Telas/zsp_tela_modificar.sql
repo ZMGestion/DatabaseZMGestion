@@ -23,6 +23,7 @@ SALIR: BEGIN
     DECLARE pPrecios JSON;
     DECLARE pIdPrecio int;
     DECLARE pPrecio decimal(10,2);
+    DECLARE pPrecioViejo DECIMAL(10,2);
 
     -- Para la respuesta
     DECLARE pRespuesta JSON;
@@ -81,8 +82,9 @@ SALIR: BEGIN
     START TRANSACTION;
 
     SELECT f_dameUltimoPrecio('T', pIdTela) INTO pIdPrecio;
+    SET pPrecioViejo = (SELECT Precio FROM Precios WHERE IdPrecio = pIdPrecio);
 
-    IF pPrecio <> (SELECT Precio FROM Precios WHERE IdPrecio = pIdPrecio) THEN
+     IF pPrecio != pPrecioViejo  OR pPrecioViejo IS NULL THEN
         -- Si modificó el precio revisamos que pueda hacerlo y lo modificamos
         CALL zsp_usuario_tiene_permiso(pToken, 'zsp_tela_modificar_precio', pIdUsuarioEjecuta, pMensaje);
         IF pMensaje != 'OK' THEN

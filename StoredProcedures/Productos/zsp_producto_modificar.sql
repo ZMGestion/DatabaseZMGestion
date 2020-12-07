@@ -29,6 +29,7 @@ SALIR:BEGIN
     DECLARE pPrecios JSON;
     DECLARE pIdPrecio int;
     DECLARE pPrecio decimal(10,2);
+    DECLARE pPrecioViejo decimal(10,2);
 
     -- Para la respuesta
     DECLARE pRespuesta JSON;
@@ -110,10 +111,14 @@ SALIR:BEGIN
     END IF;
 
     SELECT f_dameUltimoPrecio('P', pIdProducto) INTO pIdPrecio;
+    
+    SET pIdPrecio = COALESCE(pIdPrecio, 0);
 
     START TRANSACTION;
 
-    IF pPrecio <> (SELECT Precio FROM Precios WHERE IdPrecio = pIdPrecio) THEN
+    SET pPrecioViejo = (SELECT Precio FROM Precios WHERE IdPrecio = pIdPrecio);
+
+    IF pPrecio != pPrecioViejo  OR pPrecioViejo IS NULL THEN
         -- Verificamos que tenga permiso para modificar el precio
         CALL zsp_usuario_tiene_permiso(pToken, 'zsp_producto_modificar_precio', pIdUsuarioEjecuta, pMensaje);
         IF pMensaje != 'OK' THEN
@@ -159,7 +164,7 @@ SALIR:BEGIN
                 )
              AS JSON)
 			FROM	Productos p
-            INNER JOIN Precios ps ON (ps.Tipo = 'P' AND ps.IdReferencia = pIdPrecio)
+            LEFT JOIN Precios ps ON (ps.Tipo = 'P' AND ps.IdReferencia = p.IdProducto)
 			WHERE	p.IdProducto = pIdProducto
         );
 	
