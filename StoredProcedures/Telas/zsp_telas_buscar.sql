@@ -133,7 +133,7 @@ SALIR:BEGIN
             
 
 	FROM tmp_ResultadosFinal tt
-    INNER JOIN tmp_ultimosPrecios tps ON (tps.Tipo = 'T' AND tt.IdTela = tps.IdReferencia)
+    LEFT JOIN tmp_ultimosPrecios tps ON (tps.Tipo = 'T' AND tt.IdTela = tps.IdReferencia)
 	);
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;

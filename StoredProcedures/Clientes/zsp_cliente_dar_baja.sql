@@ -90,12 +90,3 @@ SALIR: BEGIN
 
 END $$
 DELIMITER ;
-
-{
-    "UsuariosEjecuta":{
-        "Token":"TOKEN"
-    },
-    "Clientes":{
-        "IdCliente":3
-    }
-}

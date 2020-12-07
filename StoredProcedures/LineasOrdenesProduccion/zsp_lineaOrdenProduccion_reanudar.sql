@@ -23,6 +23,7 @@ SALIR:BEGIN
 
     DECLARE pIdProductosFinales JSON;
     DECLARE pLineaProducto JSON;
+    DECLARE pIdLineaRemito BIGINT;
     DECLARE pIdProductoFinal INT;
     DECLARE pIdUbicacion INT;
     DECLARE pIndex INT DEFAULT 0;
@@ -111,17 +112,15 @@ SALIR:BEGIN
 
             WHILE pIndex < pLongitud DO
                 SET pLineaProducto = JSON_EXTRACT(pIdProductosFinales, CONCAT("$[", pIndex, "]"));
-                
-                SELECT lr.Cantidad INTO pCantidadSolicitada 
-                FROM Remitos r
-                INNER JOIN LineasProducto lr 
-                WHERE 
-                    lr.IdReferencia = r.IdRemito 
-                    AND lr.Tipo = 'R' 
-                    AND r.IdRemito = pIdRemito;
-
                 SET pIdProductoFinal = pLineaProducto->>"$.IdProductoFinal";
+                SET pIdLineaRemito = pLineaProducto->>"$.IdLineaProducto";
                 SET pIdUbicacion = pLineaProducto->>"$.IdUbicacion";
+
+                SET pCantidadSolicitada = (
+                    SELECT Cantidad 
+                    FROM LineasProducto 
+                    WHERE IdLineaProducto = pIdLineaRemito
+                );
 
                 IF f_calcularStockProducto(pIdProductoFinal, pIdUbicacion) < pCantidadSolicitada THEN
                     SELECT f_generarRespuesta("ERROR_SIN_STOCK", NULL) pOut;

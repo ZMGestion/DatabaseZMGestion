@@ -99,22 +99,22 @@ SALIR: BEGIN
                 INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
                 WHERE 
                     lo.IdLineaProducto = pIdLineaOrdenProduccion
-                    AND r.Tipo = 'Y'
+                    AND r.Tipo = 'X'
             ) THEN
                 -- El producto final está siendo transformado. 
                 -- Seteo en remito el Id del remito de transformacion entrada.
                 SET pIdRemito = (
-                    SELECT r.IdRemito 
+                    SELECT DISTINCT r.IdRemito 
                     FROM LineasProducto lo 
                     INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
                     INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
                     WHERE 
                         lo.IdLineaProducto = pIdLineaOrdenProduccion
-                        AND r.Tipo = 'X'
+                        AND r.Tipo = 'Y'
                 );
                 IF pIdRemito IS NULL THEN
                     INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) 
-                    VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'X', NULL, NOW(), 'Remito de transformación entrada por órden de producción', 'E');
+                    VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'Y', NULL, NOW(), 'Remito de transformación salida por orden de producción', 'C');
 
                     SET pIdRemito = LAST_INSERT_ID();
                 END IF;
@@ -123,7 +123,7 @@ SALIR: BEGIN
                 VALUES(0, pIdLineaOrdenProduccion, pIdProductoFinal, NULL, pIdRemito, 'R', NULL, pCantidad, NOW(), NULL, 'P');
             ELSE
                 SET pIdRemito = (
-                    SELECT r.IdRemito 
+                    SELECT DISTINCT r.IdRemito 
                     FROM LineasProducto lo 
                     INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
                     INNER JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
@@ -133,7 +133,8 @@ SALIR: BEGIN
                 );
 
                 IF pIdRemito IS NULL THEN
-                    INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'E', NULL, NOW(), 'Remito de entrada por órden de producción', 'E');
+                    INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) 
+                    VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'E', NULL, NOW(), 'Remito de entrada por orden de producción', 'C');
                     SET pIdRemito = LAST_INSERT_ID();            
                 END IF;
 
@@ -142,7 +143,7 @@ SALIR: BEGIN
             END IF;
 
             -- Si viene a partir de una venta generamos un remito de salida para la venta asociada a la linea de venta.
-            SELECT lv.IdLineaProducto, lv.IdReferencia INTO pIdLineaVenta, pIdVenta
+            SELECT DISTINCT lv.IdLineaProducto, lv.IdReferencia INTO pIdLineaVenta, pIdVenta
             FROM LineasProducto lop
             INNER JOIN LineasProducto lv ON lv.IdLineaProducto = lop.IdLineaProductoPadre AND lv.Tipo = 'V'
             WHERE lop.IdLineaProducto = pIdLineaOrdenProduccion;
@@ -165,7 +166,7 @@ SALIR: BEGIN
         END WHILE;
 
         SET pIdRemito = (
-            SELECT r.IdRemito 
+            SELECT DISTINCT r.IdRemito 
             FROM LineasProducto lo
             INNER JOIN OrdenesProduccion op ON lo.IdReferencia = op.IdOrdenProduccion AND lo.Tipo = 'O' 
             INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
@@ -183,7 +184,7 @@ SALIR: BEGIN
         END IF;
 
         SET pIdRemito = (
-            SELECT r.IdRemito 
+            SELECT DISTINCT r.IdRemito 
             FROM LineasProducto lo
             INNER JOIN OrdenesProduccion op ON lo.IdReferencia = op.IdOrdenProduccion AND lo.Tipo = 'O' 
             INNER JOIN LineasProducto lr ON lo.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
