@@ -14,6 +14,7 @@ SALIR: BEGIN
     DECLARE pToken varchar(256);
     DECLARE pIdUsuario smallint;
     DECLARE pRespuesta JSON;
+    DECLARE pEstado CHAR(1);
     
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -39,14 +40,14 @@ SALIR: BEGIN
 		LEAVE SALIR;
 	END IF;
 
-    SET @pEstado = (SELECT Estado FROM Usuarios WHERE IdUsuario = pIdUsuario);
+    SELECT Estado INTO pEstado FROM Usuarios WHERE IdUsuario = pIdUsuario);
 
-    IF (@pEstado IS NULL) THEN
+    IF (pEstado IS NULL) THEN
         SELECT f_generarRespuesta('ERROR_NOEXISTE_USUARIO', NULL)pOut;
         LEAVE SALIR;
     END IF;
 
-     IF (@pEstado = 'B') THEN
+     IF (pEstado = 'B') THEN
         SELECT f_generarRespuesta('ERROR_USUARIO_ESTA_BAJA', NULL)pOut;
         LEAVE SALIR;
     END IF;

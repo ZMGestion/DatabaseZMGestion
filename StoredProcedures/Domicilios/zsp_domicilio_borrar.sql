@@ -7,7 +7,6 @@ SALIR:BEGIN
         Procedimiento que permite borrar un domicilio controlando que o hay sido utilizado en una venta, remito ni en una ubicacion. 
         Devuelve un json con NULL en respuesta o el codigo de error en error.
     */
-    
     DECLARE pUsuariosEjecuta JSON;
     DECLARE pToken varchar(256);
     DECLARE pRespuesta JSON;
@@ -17,7 +16,6 @@ SALIR:BEGIN
     DECLARE pIdDomicilio int;
     DECLARE pClientes JSON;
     DECLARE pIdCliente int;
-
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -37,7 +35,6 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-
     SET pDomicilios = pIn ->> "$.Domicilios";
     SET pIdDomicilio = pDomicilios ->> "$.IdDomicilio";
 
@@ -51,17 +48,10 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF EXISTS (SELECT d.IdDomicilio FROM Domicilios d INNER JOIN Remitos r USING (IdDomicilio) WHERE d.IdDomicilio = pIdDomicilio) THEN
-        SELECT f_generarRespuesta("ERROR_BORRAR_DOMICILIO_REMITO", NULL) pOut;
-        LEAVE SALIR;
-    END IF;
-
     IF EXISTS (SELECT d.IdDomicilio FROM Domicilios d INNER JOIN Ubicaciones u USING (IdDomicilio) WHERE d.IdDomicilio = pIdDomicilio) THEN
         SELECT f_generarRespuesta("ERROR_BORRAR_DOMICILIO_UBICACION", NULL) pOut;
         LEAVE SALIR;
     END IF;
-    
-
 
     START TRANSACTION;
         IF pIdCliente IS NULL THEN
@@ -75,8 +65,6 @@ SALIR:BEGIN
             ELSE
                 DELETE FROM DomiciliosCliente WHERE IdDomicilio = pIdDomicilio AND IdCliente = pIdCliente ;
             END IF;
-            
-            
         END IF;
 		SELECT f_generarRespuesta(NULL, NULL) AS pOut;
     COMMIT;

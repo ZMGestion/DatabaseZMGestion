@@ -75,12 +75,6 @@ SALIR:BEGIN
         LEAVE SALIR;
     END IF;
 
-    IF EXISTS (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad) THEN
-        SET pOut = f_generarRespuesta("ERROR_EXISTE_UBICACION_CIUDAD", NULL);
-        SET pIdDomicilio = NULL;
-        LEAVE SALIR;
-    END IF;
-
     SET pIdDomicilio = (SELECT IdDomicilio FROM Domicilios WHERE Domicilio = pDomicilio AND IdCiudad = pIdCiudad);
     -- En caso que el domicilio exista y el cliente no sea null, lo asocia al cliente con el domicilio
     IF (pIdDomicilio IS NOT NULL) THEN
@@ -90,8 +84,9 @@ SALIR:BEGIN
                 SET pOut = NULL;
             END IF;       
         ELSE
-            SET pOut = f_generarRespuesta("ERROR_EXISTE_DOMICILIO", NULL);
-                
+            SET pOut = f_generarRespuesta("ERROR_EXISTE_DOMICILIO", NULL);    
+            SET pIdDomicilio = NULL;
+            LEAVE SALIR;
         END IF;
     -- Si el domicilio no existe lo crea y lo asocia al cliente en caso de ser necesario
     ELSE
