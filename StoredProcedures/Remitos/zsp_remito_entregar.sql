@@ -19,9 +19,6 @@ SALIR: BEGIN
     DECLARE pIdVenta INT;
     DECLARE pPrecioTotal DECIMAL(10,2);
 
-    DECLARE pIdVenta INT;
-    DECLARE pPrecioTotal DECIMAL(10,2);
-
     DECLARE pRespuesta JSON;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION

@@ -55,8 +55,8 @@ SALIR:BEGIN
                 )
              AS JSON)
 			FROM	Telas t
-            INNER JOIN Precios p ON (p.Tipo = 'T' AND t.IdTela = p.IdReferencia)
-			WHERE	t.IdTela = pIdTela AND p.IdPrecio = pIdPrecio
+            LEFT JOIN Precios p ON (p.Tipo = 'T' AND t.IdTela = p.IdReferencia)
+			WHERE	t.IdTela = pIdTela AND (p.IdPrecio = pIdPrecio OR p.IdPrecio IS NULL)
         );
 	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;

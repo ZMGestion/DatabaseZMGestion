@@ -1,8 +1,8 @@
 --
 -- ER/Studio 8.0 SQL Code Generation
--- Company :      Bachs
+-- Company :      ZMGestion
 -- Project :      modeloRelacional.DM1
--- Author :       Bachs
+-- Author :       ZMGestion
 --
 -- Date Created : Monday, June 08, 2020 15:57:02
 -- Target DBMS : MySQL 5.x
@@ -170,8 +170,9 @@ CREATE TABLE DomiciliosCliente(
     FechaAlta      DATETIME    NOT NULL,
     PRIMARY KEY (IdDomicilio, IdCliente)
 )ENGINE=INNODB
-COMMENT=''
 ;
+
+
 
 -- 
 -- TABLE: Empresa 
@@ -230,7 +231,7 @@ COMMENT='Tabla que almacena las líneas de producto.'
 
 CREATE TABLE Lustres(
     IdLustre         TINYINT         AUTO_INCREMENT,
-    Lustre           VARCHAR(10)     NOT NULL,
+    Lustre           VARCHAR(40)     NOT NULL,
     Observaciones    VARCHAR(255),
     PRIMARY KEY (IdLustre)
 )ENGINE=INNODB
@@ -258,7 +259,6 @@ COMMENT='Tabla que almacena las observaciones de una línea de producto.'
 CREATE TABLE OrdenesProduccion(
     IdOrdenProduccion    INT             AUTO_INCREMENT,
     IdUsuario            SMALLINT        NOT NULL,
-    IdVenta              INT,
     FechaAlta            DATETIME        NOT NULL,
     Observaciones        VARCHAR(255),
     Estado               CHAR(1)         NOT NULL,
@@ -395,7 +395,6 @@ COMMENT='Tabla que almacena las provincias.'
 
 CREATE TABLE Remitos(
     IdRemito         INT             AUTO_INCREMENT,
-    IdDomicilio      INT,
     IdUbicacion      TINYINT,
     IdUsuario        SMALLINT        NOT NULL,
     Tipo             CHAR(1)         NOT NULL,
@@ -630,7 +629,7 @@ CREATE UNIQUE INDEX UI_Domicilio_IdCiudad ON Domicilios(Domicilio, IdCiudad)
 -- INDEX: Ref1716 
 --
 
-CREATE INDEX Ref1716 ON Domicilios(IdProvincia, IdCiudad, IdPais)
+CREATE INDEX Ref1716 ON Domicilios(IdPais, IdProvincia, IdCiudad)
 ;
 -- 
 -- INDEX: Ref1587 
@@ -691,12 +690,6 @@ CREATE INDEX Ref3351 ON Observaciones(IdLineaProducto)
 --
 
 CREATE INDEX Ref256 ON OrdenesProduccion(IdUsuario)
-;
--- 
--- INDEX: Ref3267 
---
-
-CREATE INDEX Ref3267 ON OrdenesProduccion(IdVenta)
 ;
 -- 
 -- INDEX: UI_Pais 
@@ -811,12 +804,6 @@ CREATE UNIQUE INDEX UI_IdProvincia ON Provincias(IdProvincia)
 --
 
 CREATE INDEX Ref1414 ON Provincias(IdPais)
-;
--- 
--- INDEX: Ref1563 
---
-
-CREATE INDEX Ref1563 ON Remitos(IdDomicilio)
 ;
 -- 
 -- INDEX: Ref2772 
@@ -1060,11 +1047,6 @@ ALTER TABLE OrdenesProduccion ADD CONSTRAINT RefUsuarios56
     REFERENCES Usuarios(IdUsuario)
 ;
 
-ALTER TABLE OrdenesProduccion ADD CONSTRAINT RefVentas67 
-    FOREIGN KEY (IdVenta)
-    REFERENCES Ventas(IdVenta)
-;
-
 
 -- 
 -- TABLE: PermisosRol 
@@ -1159,11 +1141,6 @@ ALTER TABLE Provincias ADD CONSTRAINT RefPaises14
 -- 
 -- TABLE: Remitos 
 --
-
-ALTER TABLE Remitos ADD CONSTRAINT RefDomicilios63 
-    FOREIGN KEY (IdDomicilio)
-    REFERENCES Domicilios(IdDomicilio)
-;
 
 ALTER TABLE Remitos ADD CONSTRAINT RefUbicaciones72 
     FOREIGN KEY (IdUbicacion)

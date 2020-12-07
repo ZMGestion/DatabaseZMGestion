@@ -170,7 +170,7 @@ SALIR:BEGIN
                 )
         )
 	FROM tmp_ResultadosFinal tp
-    INNER JOIN tmp_ultimosPrecios tps ON (tps.Tipo = 'P' AND tp.IdProducto = tps.IdReferencia)
+    LEFT JOIN tmp_ultimosPrecios tps ON (tps.Tipo = 'P' AND tp.IdProducto = tps.IdReferencia)
 	);
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
@@ -184,4 +184,3 @@ SALIR:BEGIN
 
 END $$
 DELIMITER ;
-

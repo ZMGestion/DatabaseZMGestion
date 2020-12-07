@@ -1,1 +1,1 @@
-cat Functions/*.sql StoredProcedures/Ciudades/*.sql StoredProcedures/Domicilios/*.sql StoredProcedures/GruposProducto/*.sql StoredProcedures/Paises/*.sql StoredProcedures/Permisos/*.sql StoredProcedures/Provincias/*.sql StoredProcedures/Roles/*.sql StoredProcedures/Sesiones/*.sql StoredProcedures/Telas/*.sql StoredProcedures/TiposDocumento/*.sql StoredProcedures/Ubicaciones/*.sql StoredProcedures/Usuarios/*.sql> Script.sql
+cat Functions/*.sql StoredProcedures/*/*.sql> Script.sql

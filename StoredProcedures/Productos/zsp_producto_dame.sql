@@ -120,11 +120,11 @@ SALIR:BEGIN
                 )
              AS JSON)
 			FROM	Productos p
-            INNER JOIN Precios ps ON (ps.Tipo = 'P' AND p.IdProducto = ps.IdReferencia)
+            LEFT JOIN Precios ps ON (ps.Tipo = 'P' AND p.IdProducto = ps.IdReferencia)
             INNER JOIN GruposProducto gp ON (gp.IdGrupoProducto = p.IdGrupoProducto)
             INNER JOIN TiposProducto tp ON (p.IdTipoProducto = tp.IdTipoProducto)
             INNER JOIN CategoriasProducto cp ON (cp.IdCategoriaProducto = p.IdCategoriaProducto)
-			WHERE	p.IdProducto = pIdProducto AND ps.IdPrecio = pIdPrecio
+			WHERE	p.IdProducto = pIdProducto AND (ps.IdPrecio = pIdPrecio OR pIdPrecio IS NULL)
         );
 	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
