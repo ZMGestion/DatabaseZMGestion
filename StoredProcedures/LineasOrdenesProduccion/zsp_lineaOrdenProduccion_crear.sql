@@ -139,7 +139,7 @@ SALIR:BEGIN
 
             -- Creo el remito del tipo transformacion entrada (X)
             IF COALESCE(pIdRemito, 0) = 0 THEN
-                INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, pIdUbicacion, pIdUsuarioEjecuta, 'X', NULL, NOW(), 'Remito de transformación entrada para orden de producción', 'E');
+                INSERT INTO Remitos (IdRemito, IdUbicacion, IdUsuario, Tipo, FechaEntrega, FechaAlta, Observaciones, Estado) VALUES(0, NULL, pIdUsuarioEjecuta, 'X', NULL, NOW(), 'Remito de transformación entrada para orden de producción', 'E');
                 SET pIdRemito = LAST_INSERT_ID();
             END IF;
 

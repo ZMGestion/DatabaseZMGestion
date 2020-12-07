@@ -23,6 +23,7 @@ SALIR: BEGIN
     DECLARE pMontoACancelar DECIMAL(10,2);
 
     DECLARE pIdLineaRemito BIGINT;
+    DECLARE pIdLineaOP BIGINT;
     
     DECLARE pIdVenta int;
 
@@ -97,6 +98,13 @@ SALIR: BEGIN
             SET Estado = 'C',
                 FechaCancelacion = NOW()
             WHERE IdLineaProducto = pIdLineaRemito;
+        END IF;
+
+        SET pIdLineaOP = (SELECT IdLineaProducto FROM LineasProducto WHERE IdLineaProductoPadre = pIdLineaProducto AND Tipo = 'O');
+        IF COALESCE(pIdLineaOP, 0) != 0 THEN
+            UPDATE LineasProducto
+            SET IdLineaProductoPadre = NULL
+            WHERE IdLineaProducto = pIdLineaOP;
         END IF;
 
         UPDATE LineasProducto

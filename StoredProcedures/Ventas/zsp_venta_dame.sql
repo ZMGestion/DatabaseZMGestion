@@ -103,7 +103,8 @@ SALIR: BEGIN
                         "Cantidad", lp.Cantidad,
                         "PrecioUnitario", lp.PrecioUnitario,
                         "Estado", f_dameEstadoLineaVenta(lp.IdLineaProducto),
-                        "_IdRemito", r.IdRemito
+                        "_IdRemito", (SELECT IdReferencia FROM LineasProducto WHERE IdLineaProductoPadre = lp.IdLineaProducto AND Tipo = 'R'),
+                        "_IdOrdenProduccion", (SELECT IdReferencia FROM LineasProducto WHERE IdLineaProductoPadre = lp.IdLineaProducto AND Tipo = 'O')
                     ),
                     "ProductosFinales", JSON_OBJECT(
                         "IdProductoFinal", pf.IdProductoFinal,
@@ -136,8 +137,6 @@ SALIR: BEGIN
         LEFT JOIN Domicilios d ON d.IdDomicilio = v.IdDomicilio
         INNER JOIN Ubicaciones ub ON ub.IdUbicacion = v.IdUbicacion
         LEFT JOIN LineasProducto lp ON v.IdVenta = lp.IdReferencia AND lp.Tipo = 'V'
-        LEFT JOIN LineasProducto lr ON lp.IdLineaProducto = lr.IdLineaProductoPadre AND lr.Tipo = 'R'
-        LEFT JOIN Remitos r ON lr.IdReferencia = r.IdRemito AND lr.Tipo = 'R'
         LEFT JOIN ProductosFinales pf ON lp.IdProductoFinal = pf.IdProductoFinal
         LEFT JOIN Productos pr ON pf.IdProducto = pr.IdProducto
         LEFT JOIN Telas te ON pf.IdTela = te.IdTela
