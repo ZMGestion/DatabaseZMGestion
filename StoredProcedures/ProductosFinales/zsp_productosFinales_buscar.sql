@@ -140,7 +140,7 @@ SALIR:BEGIN
                                 'FechaAlta', tp.FechaAlta,
                                 'FechaBaja', tp.FechaBaja,
                                 'Estado', tp.Estado,
-                                '_PrecioTotal', (upp.Precio + COALESCE(pr.LongitudTela, 0) * upt.Precio),
+                                '_PrecioTotal', (upp.Precio + COALESCE(pr.LongitudTela, 0) * COALESCE(upt.Precio, 0)),
                                 '_Cantidad', f_calcularStockProducto(tp.IdProductoFinal, 0)
                             ),
                         "Productos",
