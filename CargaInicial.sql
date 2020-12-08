@@ -161,6 +161,7 @@ INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedim
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (139, 'Verificar tarea', 'Permite verificar la correcta ejecución de una tarea', 'zsp_tareas_verificar');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (140, 'Mover producto', 'Permite a un usuario mover un producto de una ubicación a otra', 'zsp_productoFinal_mover');
 INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (141, 'Verificar línea de orden de producción', 'Permite a un usuario verificar que una o mas lineas de órden de producción estan verificadas', 'zsp_lineasOrdenProduccion_verificar');
+INSERT INTO ZMGestion.Permisos (`IdPermiso`, `Permiso`, `Descripcion`, `Procedimiento`) VALUES (142, 'Reporte stock', 'Permite generar un reporte del stock total', 'zsp_reportes_stock');
 
 /* Carga inicial PermisosRol Administradores */
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 1);
@@ -304,6 +305,7 @@ INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 138);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 139);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 140);
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 141);
+INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (1, 142);
 
 /* Carga inicial PermisosRol Vendedores */
 INSERT INTO ZMGestion.PermisosRol (IdRol, IdPermiso) VALUES (2, 11);

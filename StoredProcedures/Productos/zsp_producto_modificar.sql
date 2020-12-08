@@ -161,12 +161,11 @@ SALIR:BEGIN
                         'Precio', ps.Precio,
                         'FechaAlta', ps.FechaAlta
                     ) 
-                )
-             AS JSON)
-			FROM	Productos p
-            LEFT JOIN Precios ps ON (ps.Tipo = 'P' AND ps.IdReferencia = p.IdProducto)
-			WHERE	p.IdProducto = pIdProducto
-        );
+                ) AS JSON)
+        FROM	Productos p
+        LEFT JOIN Precios ps ON (ps.Tipo = 'P' AND ps.IdReferencia = p.IdProducto)
+        WHERE	p.IdProducto = pIdProducto AND ps.IdPrecio = pIdPrecio
+    );
 	
 		SELECT f_generarRespuesta(NULL, pRespuesta) AS pOut;
 
