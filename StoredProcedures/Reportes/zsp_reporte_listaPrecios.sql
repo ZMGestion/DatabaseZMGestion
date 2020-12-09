@@ -1,8 +1,11 @@
-DROP PROCEDURE IF EXISTS zsp_reportes_stock;
+DROP PROCEDURE IF EXISTS zsp_reportes_listaPrecios;
 DELIMITER $$
-CREATE PROCEDURE zsp_reportes_stock(pIn JSON)
+CREATE PROCEDURE zsp_reportes_listaPrecios(pIn JSON)
 SALIR: BEGIN
     /*
+        Procedimiento que devuelve todos los productos finales junto con sus precios
+    */
+        /*
         Procedimiento que devuelve todos los productos junto con su stock total
     */
     -- Control de permisos
@@ -16,7 +19,7 @@ SALIR: BEGIN
     SET pUsuariosEjecuta = pIn ->> "$.UsuariosEjecuta";
     SET pToken = pUsuariosEjecuta ->> "$.Token";
     
-    CALL zsp_usuario_tiene_permiso(pToken, "zsp_reportes_stock", pIdUsuarioEjecuta, pMensaje);
+    CALL zsp_usuario_tiene_permiso(pToken, "zsp_reportes_listaPrecios", pIdUsuarioEjecuta, pMensaje);
     IF pMensaje != "OK" THEN
         SELECT f_generarRespuesta(pMensaje, NULL) pOut;
         LEAVE SALIR;
@@ -33,7 +36,7 @@ SALIR: BEGIN
                     "FechaAlta", pf.FechaAlta,
                     "FechaBaja", pf.FechaBaja,
                     "Estado", pf.Estado,
-                    "_Cantidad", COALESCE(f_calcularStockProducto(pf.IdProductoFinal, 0), 0)
+                    "_PrecioTotal", COALESCE(f_calcularPrecioProductoFinal(pf.IdProductoFinal), 0)
                 ),
                 "Productos",JSON_OBJECT(
                     "IdProducto", pr.IdProducto,
@@ -66,6 +69,6 @@ SALIR: BEGIN
     );
 
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
-
+    
 END $$
 DELIMITER ;
