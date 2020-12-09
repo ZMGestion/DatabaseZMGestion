@@ -65,6 +65,47 @@ SALIR: BEGIN
         LEFT JOIN Lustres lu ON (lu.IdLustre = pf.IdLustre)
     );
 
+    SET pRespuesta = (
+        SELECT CAST(CONCAT('[', COALESCE(GROUP_CONCAT(JSON_OBJECT(
+            "ProductosFinales",JSON_OBJECT(
+                "IdProductoFinal", pf.IdProductoFinal,
+                "IdProducto", pf.IdProducto,
+                "IdLustre", pf.IdLustre,
+                "IdTela", pf.IdTela,
+                "FechaAlta", pf.FechaAlta,
+                "FechaBaja", pf.FechaBaja,
+                "Estado", pf.Estado,
+                "_Cantidad", COALESCE(f_calcularStockProducto(pf.IdProductoFinal, 0), 0)
+            ),
+            "Productos",JSON_OBJECT(
+                "IdProducto", pr.IdProducto,
+                "IdCategoriaProducto", pr.IdCategoriaProducto,
+                "IdGrupoProducto", pr.IdGrupoProducto,
+                "IdTipoProducto", pr.IdTipoProducto,
+                "Producto", pr.Producto,
+                "LongitudTela", pr.LongitudTela,
+                "FechaAlta", pr.FechaAlta,
+                "FechaBaja", pr.FechaBaja,
+                "Observaciones", pr.Observaciones,
+                "Estado", pr.Estado
+            ),
+            "Lustres", IF(pf.IdLustre IS NOT NULL, 
+                JSON_OBJECT(
+                    "IdLustre", lu.IdLustre,
+                    "Lustre", lu.Lustre
+                ), NULL),
+            "Telas", IF(pf.IdTela IS NOT NULL, 
+                JSON_OBJECT(
+                    "IdTela", te.IdTela,
+                    "Tela", te.Tela
+                ) , NULL) 
+        ) ORDER BY pr.Producto ASC),''), ']') AS JSON)
+        FROM	ProductosFinales pf            
+        INNER JOIN Productos pr ON (pr.IdProducto = pf.IdProducto)
+        LEFT JOIN Telas te ON (te.IdTela = pf.IdTela)
+        LEFT JOIN Lustres lu ON (lu.IdLustre = pf.IdLustre)
+    );
+
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
 
 END $$
