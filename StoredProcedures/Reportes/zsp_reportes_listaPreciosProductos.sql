@@ -24,9 +24,10 @@ SALIR: BEGIN
         LEAVE SALIR;
     END IF;
 
-     SET pRespuesta = (
-        SELECT JSON_ARRAYAGG(
-            JSON_OBJECT(
+    SET SESSION GROUP_CONCAT_MAX_LEN=150000;
+
+    SET pRespuesta = (
+        SELECT CONCAT('[', COALESCE(GROUP_CONCAT(JSON_OBJECT(
                 "Productos",  JSON_OBJECT(
                     'IdProducto', IdProducto,
                     'Producto', Producto
@@ -34,12 +35,13 @@ SALIR: BEGIN
                 "Precios", JSON_OBJECT(
                     'Precio', COALESCE((SELECT Precio FROM Precios WHERE IdPrecio = f_dameUltimoPrecio('P', IdProducto)),0)
                 ) 
-            )
-        )
+        ) ORDER BY Producto ASC),''), ']') AS JSON
         FROM	Productos
         WHERE Estado = 'A'
     );
 
+    SET SESSION GROUP_CONCAT_MAX_LEN=15000;
+    
     SELECT f_generarRespuesta(NULL, pRespuesta) pOut;
     
 END $$
